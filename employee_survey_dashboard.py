@@ -487,7 +487,7 @@ def show_kpi_overview(data, kpis):
         sat_color = "normal" if satisfaction >= 4 else "inverse" if satisfaction <= 2.5 else "off"
         st.metric(
             label="😊 総合満足度",
-            value=f"{satisfaction:.2f}/5",
+            value=f"{satisfaction:.1f}/5",
             delta=sat_delta,
             delta_color=sat_color
         )
@@ -499,7 +499,7 @@ def show_kpi_overview(data, kpis):
         cont_color = "normal" if contribution >= 4 else "inverse" if contribution <= 2.5 else "off"
         st.metric(
             label="⭐ 活躍貢献度",
-            value=f"{contribution:.2f}/5",
+            value=f"{contribution:.1f}/5",
             delta=cont_delta,
             delta_color=cont_color
         )
@@ -511,7 +511,7 @@ def show_kpi_overview(data, kpis):
         int_color = "normal" if intention >= 4 else "inverse" if intention <= 2.5 else "off"
         st.metric(
             label="🏢 勤続意向",
-            value=f"{intention:.2f}/5",
+            value=f"{intention:.1f}/5",
             delta=int_delta,
             delta_color=int_color
         )
@@ -675,34 +675,171 @@ def show_satisfaction_analysis(data, kpis):
                 '期待度': list(kpis['expectation_by_category'].values())
             })
             
-            # ギャップの散布図
-            fig = px.scatter(
-                gap_df,
-                x='満足度',
-                y='期待度',
-                size=np.abs(gap_df['ギャップ']),
-                color='ギャップ',
-                hover_name='カテゴリ',
-                title="期待度 vs 満足度 ギャップ分析",
-                color_continuous_scale='RdYlGn',
-                range_x=[1, 5],
-                range_y=[1, 5]
+            # 4象限プロット（大幅改善版）
+            fig = go.Figure()
+            
+            # 4象限の背景色を追加
+            mid_x, mid_y = 3, 3  # 中央値
+            
+            # 象限の背景色
+            fig.add_shape(
+                type="rect", x0=1, y0=mid_y, x1=mid_x, y1=5,
+                fillcolor="rgba(255, 99, 132, 0.1)", line=dict(width=0),
+                name="高期待・低満足"
+            )
+            fig.add_shape(
+                type="rect", x0=mid_x, y0=mid_y, x1=5, y1=5,
+                fillcolor="rgba(75, 192, 192, 0.1)", line=dict(width=0),
+                name="高期待・高満足"
+            )
+            fig.add_shape(
+                type="rect", x0=1, y0=1, x1=mid_x, y1=mid_y,
+                fillcolor="rgba(255, 206, 86, 0.1)", line=dict(width=0),
+                name="低期待・低満足"
+            )
+            fig.add_shape(
+                type="rect", x0=mid_x, y0=1, x1=5, y1=mid_y,
+                fillcolor="rgba(153, 102, 255, 0.1)", line=dict(width=0),
+                name="低期待・高満足"
             )
             
-            # 基準線を追加
-            fig.add_shape(type="line", x0=1, y0=1, x1=5, y1=5, 
-                         line=dict(color="gray", width=2, dash="dash"))
+            # 区切り線を追加
+            fig.add_hline(y=mid_y, line_dash="dash", line_color="rgba(128, 128, 128, 0.8)", line_width=2)
+            fig.add_vline(x=mid_x, line_dash="dash", line_color="rgba(128, 128, 128, 0.8)", line_width=2)
             
-            fig.update_layout(height=500)
+            # データポイントを追加
+            colors = []
+            sizes = []
+            symbols = []
+            for _, row in gap_df.iterrows():
+                x, y = row['満足度'], row['期待度']
+                gap = row['ギャップ']
+                
+                # 象限によって色を決定
+                if x >= mid_x and y >= mid_y:
+                    colors.append('#48BB78')  # 緑 - 理想的
+                    symbols.append('circle')
+                elif x < mid_x and y >= mid_y:
+                    colors.append('#F56565')  # 赤 - 要改善
+                    symbols.append('triangle-up')
+                elif x >= mid_x and y < mid_y:
+                    colors.append('#9F7AEA')  # 紫 - 満足超過
+                    symbols.append('diamond')
+                else:
+                    colors.append('#ED8936')  # オレンジ - 機会領域
+                    symbols.append('square')
+                
+                sizes.append(max(10, abs(gap) * 20 + 15))
+            
+            fig.add_trace(go.Scatter(
+                x=gap_df['満足度'],
+                y=gap_df['期待度'],
+                mode='markers+text',
+                marker=dict(
+                    size=sizes,
+                    color=colors,
+                    symbol=symbols,
+                    line=dict(width=2, color='white'),
+                    opacity=0.8
+                ),
+                text=gap_df['カテゴリ'],
+                textposition="top center",
+                textfont=dict(size=10, color='black'),
+                hovertemplate='<b>%{text}</b><br>' +
+                            '満足度: %{x:.1f}<br>' +
+                            '期待度: %{y:.1f}<br>' +
+                            'ギャップ: %{customdata:.2f}<extra></extra>',
+                customdata=gap_df['ギャップ'],
+                showlegend=False
+            ))
+            
+            # レイアウト設定
+            fig.update_layout(
+                title={
+                    'text': "期待度 vs 満足度 4象限分析",
+                    'x': 0.5,
+                    'font': {'size': 18, 'color': '#1f2937'}
+                },
+                xaxis=dict(
+                    title="満足度 →",
+                    range=[0.8, 5.2],
+                    showgrid=True,
+                    gridcolor='rgba(128, 128, 128, 0.2)',
+                    dtick=1
+                ),
+                yaxis=dict(
+                    title="↑ 期待度",
+                    range=[0.8, 5.2],
+                    showgrid=True,
+                    gridcolor='rgba(128, 128, 128, 0.2)',
+                    dtick=1
+                ),
+                height=600,
+                plot_bgcolor='white',
+                paper_bgcolor='white'
+            )
+            
+            # 象限ラベルを追加
+            annotations = [
+                dict(x=4.2, y=4.2, text="<b>🎯 理想的</b><br>(高満足・高期待)", 
+                     showarrow=False, font=dict(size=11, color='#22543d'), bgcolor='rgba(72, 187, 120, 0.2)', bordercolor='#48BB78'),
+                dict(x=1.8, y=4.2, text="<b>🚨 要改善</b><br>(低満足・高期待)", 
+                     showarrow=False, font=dict(size=11, color='#742a2a'), bgcolor='rgba(245, 101, 101, 0.2)', bordercolor='#F56565'),
+                dict(x=4.2, y=1.8, text="<b>💎 満足超過</b><br>(高満足・低期待)", 
+                     showarrow=False, font=dict(size=11, color='#553c9a'), bgcolor='rgba(159, 122, 234, 0.2)', bordercolor='#9F7AEA'),
+                dict(x=1.8, y=1.8, text="<b>🔄 機会領域</b><br>(低満足・低期待)", 
+                     showarrow=False, font=dict(size=11, color='#c05621'), bgcolor='rgba(237, 137, 54, 0.2)', bordercolor='#ED8936')
+            ]
+            
+            for ann in annotations:
+                fig.add_annotation(**ann)
+            
             st.plotly_chart(fig, use_container_width=True)
             
-            # ギャップテーブル
-            st.subheader("期待度ギャップ詳細")
-            gap_display = gap_df.sort_values('ギャップ').round(2)
-            gap_display['判定'] = gap_display['ギャップ'].apply(
-                lambda x: '😊 満足度>期待度' if x > 0.2 else '😔 期待度>満足度' if x < -0.2 else '😐 ほぼ同等'
+            # 象限別の説明
+            st.info("""
+            **📊 4象限の解釈**
+            - 🎯 **理想的（右上）**: 満足度・期待度ともに高い項目。現状維持・さらなる強化
+            - 🚨 **要改善（左上）**: 期待は高いが満足度が低い項目。最優先で改善が必要
+            - 💎 **満足超過（右下）**: 満足度は高いが期待度が低い項目。アピールや認知向上の機会
+            - 🔄 **機会領域（左下）**: 期待・満足ともに低い項目。将来的な改善検討領域
+            """)
+            
+            # ギャップテーブル（改善版）
+            st.subheader("📋 象限別分析結果")
+            
+            # 象限分類を追加
+            def classify_quadrant(row):
+                x, y = row['満足度'], row['期待度']
+                if x >= 3 and y >= 3:
+                    return '🎯 理想的'
+                elif x < 3 and y >= 3:
+                    return '🚨 要改善'
+                elif x >= 3 and y < 3:
+                    return '💎 満足超過'
+                else:
+                    return '🔄 機会領域'
+            
+            gap_display = gap_df.copy()
+            gap_display['象限'] = gap_display.apply(classify_quadrant, axis=1)
+            gap_display['ギャップ評価'] = gap_display['ギャップ'].apply(
+                lambda x: '😊 満足>期待' if x > 0.3 else '😔 期待>満足' if x < -0.3 else '😐 ほぼ同等'
             )
-            st.dataframe(gap_display, use_container_width=True)
+            
+            # 優先度を設定
+            priority_map = {'🚨 要改善': 1, '🔄 機会領域': 2, '💎 満足超過': 3, '🎯 理想的': 4}
+            gap_display['優先度'] = gap_display['象限'].map(priority_map)
+            
+            # 表示用に整理
+            display_df = gap_display[['カテゴリ', '満足度', '期待度', 'ギャップ', '象限', 'ギャップ評価']].sort_values('優先度')
+            display_df = display_df.round({'満足度': 1, '期待度': 1, 'ギャップ': 2})
+            display_df = display_df.drop_duplicates().reset_index(drop=True)
+            
+            st.dataframe(
+                display_df[['カテゴリ', '満足度', '期待度', 'ギャップ', '象限', 'ギャップ評価']], 
+                use_container_width=True,
+                hide_index=True
+            )
 
 def show_department_analysis(data, kpis):
     """部署別分析を表示"""
