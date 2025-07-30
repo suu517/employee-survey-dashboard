@@ -24,85 +24,163 @@ st.markdown("""
 <style>
     html, body, [class*="css"] {
         font-family: 'Helvetica', 'Arial', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+        background-color: #f8fafc;
     }
     
     h1, h2, h3 {
         color: #1E293B;
     }
     
-    .kpi-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 16px;
-        margin-bottom: 20px;
-    }
+    /* 改良されたKPIカードスタイル */
     .kpi-card {
-        background-color: white;
-        border-radius: 10px;
-        padding: 16px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        flex: 1;
-        min-width: 200px;
-        border-left: 4px solid #3498db;
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: 16px;
+        padding: 24px 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        margin-bottom: 16px;
+        min-height: 140px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
     }
+    
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+    }
+    
+    .kpi-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+    }
+    
     .kpi-title {
-        font-size: 14px;
-        color: #6c757d;
+        font-size: 13px;
+        color: #64748b;
+        margin-bottom: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        line-height: 1.2;
+    }
+    
+    .kpi-value {
+        font-size: 32px;
+        font-weight: 800;
+        color: #1e293b;
         margin-bottom: 8px;
+        line-height: 1.1;
+        display: flex;
+        align-items: baseline;
+    }
+    
+    .kpi-unit {
+        font-size: 18px;
+        font-weight: 500;
+        color: #64748b;
+        margin-left: 4px;
+    }
+    
+    .kpi-change {
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        color: #64748b;
         font-weight: 500;
     }
-    .kpi-value {
-        font-size: 28px;
-        font-weight: bold;
-        color: #1E293B;
-        margin-bottom: 8px;
-    }
-    .kpi-change {
-        font-size: 14px;
-        display: flex;
-        align-items: center;
-        color: #6c757d;
-    }
+    
     .kpi-icon {
         margin-right: 8px;
-        font-size: 18px;
+        font-size: 20px;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
     }
     
+    /* カラー付きKPIカード */
+    .kpi-card-green::before {
+        background: linear-gradient(90deg, #22c55e, #16a34a);
+    }
+    .kpi-card-orange::before {
+        background: linear-gradient(90deg, #f59e0b, #d97706);
+    }
+    .kpi-card-red::before {
+        background: linear-gradient(90deg, #ef4444, #dc2626);
+    }
+    .kpi-card-blue::before {
+        background: linear-gradient(90deg, #3b82f6, #2563eb);
+    }
+    
+    /* セクションヘッダー改善 */
     .section-header {
-        background: linear-gradient(90deg, #3498db, #2ecc71);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        padding: 15px 20px;
-        border-radius: 10px;
-        margin-bottom: 25px;
-        box-shadow: 0 2px 10px rgba(52, 152, 219, 0.3);
+        padding: 20px 28px;
+        border-radius: 16px;
+        margin-bottom: 32px;
+        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.25);
+        border: 1px solid rgba(255, 255, 255, 0.1);
     }
     
+    .section-header h2 {
+        color: white !important;
+        margin: 0;
+        font-size: 24px;
+        font-weight: 700;
+    }
+    
+    /* データ状況表示の改善 */
+    .data-status {
+        background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%);
+        border: 1px solid #0ea5e9;
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px rgba(14, 165, 233, 0.1);
+    }
+    
+    /* サイドバーヘッダー */
     .sidebar-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 15px;
-        border-radius: 10px;
+        padding: 18px;
+        border-radius: 12px;
         display: flex;
         align-items: center;
-        margin-bottom: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2);
     }
     
     .sidebar-logo {
-        background-color: white;
-        width: 45px;
-        height: 45px;
-        border-radius: 8px;
+        background-color: rgba(255, 255, 255, 0.95);
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
         display: flex;
         justify-content: center;
         align-items: center;
-        margin-right: 12px;
+        margin-right: 14px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
     
-    .data-status {
-        background-color: #e3f2fd;
-        border: 1px solid #2196f3;
-        border-radius: 5px;
-        padding: 10px;
-        margin-bottom: 20px;
+    /* レスポンシブ対応 */
+    @media (max-width: 768px) {
+        .kpi-card {
+            min-height: 120px;
+            padding: 20px 16px;
+        }
+        .kpi-value {
+            font-size: 28px;
+        }
+        .kpi-title {
+            font-size: 12px;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -391,13 +469,13 @@ def show_kpi_overview(data, kpis):
         st.error("KPIデータが利用できません")
         return
     
-    # メインKPI
+    # メインKPI（改良版デザイン）
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        nps_color = "#27AE60" if kpis['nps'] > 0 else "#E74C3C" if kpis['nps'] < -10 else "#F39C12"
+        nps_class = "kpi-card-green" if kpis['nps'] > 0 else "kpi-card-red" if kpis['nps'] < -10 else "kpi-card-orange"
         st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: {nps_color}">
+        <div class="kpi-card {nps_class}">
             <div class="kpi-title">eNPS</div>
             <div class="kpi-value">{kpis['nps']:.1f}</div>
             <div class="kpi-change">
@@ -409,11 +487,11 @@ def show_kpi_overview(data, kpis):
     
     with col2:
         satisfaction = kpis['avg_satisfaction']
-        sat_color = "#27AE60" if satisfaction >= 4 else "#E74C3C" if satisfaction <= 2.5 else "#F39C12"
+        sat_class = "kpi-card-green" if satisfaction >= 4 else "kpi-card-red" if satisfaction <= 2.5 else "kpi-card-orange"
         st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: {sat_color}">
+        <div class="kpi-card {sat_class}">
             <div class="kpi-title">総合満足度</div>
-            <div class="kpi-value">{satisfaction:.2f}/5</div>
+            <div class="kpi-value">{satisfaction:.2f}<span class="kpi-unit">/5</span></div>
             <div class="kpi-change">
                 <span class="kpi-icon">😊</span>
                 満足度平均
@@ -423,11 +501,11 @@ def show_kpi_overview(data, kpis):
     
     with col3:
         contribution = kpis['avg_contribution']
-        cont_color = "#27AE60" if contribution >= 4 else "#E74C3C" if contribution <= 2.5 else "#F39C12"
+        cont_class = "kpi-card-green" if contribution >= 4 else "kpi-card-red" if contribution <= 2.5 else "kpi-card-orange"
         st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: {cont_color}">
+        <div class="kpi-card {cont_class}">
             <div class="kpi-title">活躍貢献度</div>
-            <div class="kpi-value">{contribution:.2f}/5</div>
+            <div class="kpi-value">{contribution:.2f}<span class="kpi-unit">/5</span></div>
             <div class="kpi-change">
                 <span class="kpi-icon">⭐</span>
                 パフォーマンス
@@ -437,11 +515,11 @@ def show_kpi_overview(data, kpis):
     
     with col4:
         intention = kpis['avg_long_term_intention']
-        int_color = "#27AE60" if intention >= 4 else "#E74C3C" if intention <= 2.5 else "#F39C12"
+        int_class = "kpi-card-green" if intention >= 4 else "kpi-card-red" if intention <= 2.5 else "kpi-card-orange"
         st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: {int_color}">
+        <div class="kpi-card {int_class}">
             <div class="kpi-title">勤続意向</div>
-            <div class="kpi-value">{intention:.2f}/5</div>
+            <div class="kpi-value">{intention:.2f}<span class="kpi-unit">/5</span></div>
             <div class="kpi-change">
                 <span class="kpi-icon">🏢</span>
                 定着意向
@@ -449,27 +527,28 @@ def show_kpi_overview(data, kpis):
         </div>
         """, unsafe_allow_html=True)
     
-    # サブKPI
+    # サブKPI（改良版デザイン）
+    st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.markdown(f"""
-        <div class="kpi-card">
+        <div class="kpi-card kpi-card-blue">
             <div class="kpi-title">平均年収</div>
-            <div class="kpi-value">{kpis['avg_salary']:.0f}万円</div>
+            <div class="kpi-value">{kpis['avg_salary']:.0f}<span class="kpi-unit">万円</span></div>
             <div class="kpi-change">
                 <span class="kpi-icon">💰</span>
-                年収
+                年収レベル
             </div>
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
-        overtime_color = "#E74C3C" if kpis['avg_overtime'] >= 40 else "#27AE60" if kpis['avg_overtime'] <= 20 else "#F39C12"
+        overtime_class = "kpi-card-red" if kpis['avg_overtime'] >= 40 else "kpi-card-green" if kpis['avg_overtime'] <= 20 else "kpi-card-orange"
         st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: {overtime_color}">
+        <div class="kpi-card {overtime_class}">
             <div class="kpi-title">月平均残業時間</div>
-            <div class="kpi-value">{kpis['avg_overtime']:.1f}h</div>
+            <div class="kpi-value">{kpis['avg_overtime']:.1f}<span class="kpi-unit">h</span></div>
             <div class="kpi-change">
                 <span class="kpi-icon">⏰</span>
                 労働時間
@@ -478,11 +557,11 @@ def show_kpi_overview(data, kpis):
         """, unsafe_allow_html=True)
     
     with col3:
-        leave_color = "#27AE60" if kpis['avg_leave_usage'] >= 80 else "#E74C3C" if kpis['avg_leave_usage'] <= 50 else "#F39C12"
+        leave_class = "kpi-card-green" if kpis['avg_leave_usage'] >= 80 else "kpi-card-red" if kpis['avg_leave_usage'] <= 50 else "kpi-card-orange"
         st.markdown(f"""
-        <div class="kpi-card" style="border-left-color: {leave_color}">
+        <div class="kpi-card {leave_class}">
             <div class="kpi-title">有給取得率</div>
-            <div class="kpi-value">{kpis['avg_leave_usage']:.1f}%</div>
+            <div class="kpi-value">{kpis['avg_leave_usage']:.1f}<span class="kpi-unit">%</span></div>
             <div class="kpi-change">
                 <span class="kpi-icon">🏖️</span>
                 休暇利用
@@ -492,9 +571,9 @@ def show_kpi_overview(data, kpis):
     
     with col4:
         st.markdown(f"""
-        <div class="kpi-card">
+        <div class="kpi-card kpi-card-blue">
             <div class="kpi-title">回答者数</div>
-            <div class="kpi-value">{kpis['total_employees']}</div>
+            <div class="kpi-value">{kpis['total_employees']}<span class="kpi-unit">名</span></div>
             <div class="kpi-change">
                 <span class="kpi-icon">👥</span>
                 全回答者
