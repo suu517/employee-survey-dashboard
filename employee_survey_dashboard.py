@@ -452,138 +452,118 @@ def calculate_kpis(data):
     }
 
 def show_kpi_overview(data, kpis):
-    """KPI概要を表示"""
-    st.markdown('<div class="section-header"><h2>📊 総合KPIダッシュボード</h2></div>', unsafe_allow_html=True)
+    """KPI概要を表示（Streamlit標準コンポーネント使用）"""
+    st.header("📊 総合KPIダッシュボード")
     
     # データ状況の表示
     df = data['employee_data']
-    st.markdown(f"""
-    <div class="data-status">
-        <strong>📅 データ最終更新:</strong> {datetime.now().strftime('%Y/%m/%d %H:%M')} | 
-        <strong>👥 回答者数:</strong> {len(df)}名 | 
-        <strong>📋 調査項目:</strong> {len(df.columns)}項目
-    </div>
-    """, unsafe_allow_html=True)
+    
+    # 情報ボックス
+    st.info(f"📅 **データ最終更新:** {datetime.now().strftime('%Y/%m/%d %H:%M')} | 👥 **回答者数:** {len(df)}名 | 📋 **調査項目:** {len(df.columns)}項目")
     
     if not kpis:
         st.error("KPIデータが利用できません")
         return
     
-    # メインKPI（改良版デザイン）
+    st.subheader("🎯 主要指標")
+    
+    # メインKPI（Streamlit標準メトリクス使用）
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        nps_class = "kpi-card-green" if kpis['nps'] > 0 else "kpi-card-red" if kpis['nps'] < -10 else "kpi-card-orange"
-        st.markdown(f"""
-        <div class="kpi-card {nps_class}">
-            <div class="kpi-title">eNPS</div>
-            <div class="kpi-value">{kpis['nps']:.1f}</div>
-            <div class="kpi-change">
-                <span class="kpi-icon">📈</span>
-                推奨度指標
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        nps_delta = "📈 良好" if kpis['nps'] > 0 else "📉 要改善" if kpis['nps'] < -10 else "⚠️ 普通"
+        nps_color = "normal" if kpis['nps'] > 0 else "inverse" if kpis['nps'] < -10 else "off"
+        st.metric(
+            label="📈 eNPS",
+            value=f"{kpis['nps']:.1f}",
+            delta=nps_delta,
+            delta_color=nps_color
+        )
+        st.caption("従業員推奨度指標")
     
     with col2:
         satisfaction = kpis['avg_satisfaction']
-        sat_class = "kpi-card-green" if satisfaction >= 4 else "kpi-card-red" if satisfaction <= 2.5 else "kpi-card-orange"
-        st.markdown(f"""
-        <div class="kpi-card {sat_class}">
-            <div class="kpi-title">総合満足度</div>
-            <div class="kpi-value">{satisfaction:.2f}<span class="kpi-unit">/5</span></div>
-            <div class="kpi-change">
-                <span class="kpi-icon">😊</span>
-                満足度平均
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        sat_delta = f"😊 良好" if satisfaction >= 4 else "😔 要改善" if satisfaction <= 2.5 else "😐 普通"
+        sat_color = "normal" if satisfaction >= 4 else "inverse" if satisfaction <= 2.5 else "off"
+        st.metric(
+            label="😊 総合満足度",
+            value=f"{satisfaction:.2f}/5",
+            delta=sat_delta,
+            delta_color=sat_color
+        )
+        st.caption("全体的な満足度レベル")
     
     with col3:
         contribution = kpis['avg_contribution']
-        cont_class = "kpi-card-green" if contribution >= 4 else "kpi-card-red" if contribution <= 2.5 else "kpi-card-orange"
-        st.markdown(f"""
-        <div class="kpi-card {cont_class}">
-            <div class="kpi-title">活躍貢献度</div>
-            <div class="kpi-value">{contribution:.2f}<span class="kpi-unit">/5</span></div>
-            <div class="kpi-change">
-                <span class="kpi-icon">⭐</span>
-                パフォーマンス
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        cont_delta = "⭐ 高い" if contribution >= 4 else "💔 低い" if contribution <= 2.5 else "⚖️ 普通"
+        cont_color = "normal" if contribution >= 4 else "inverse" if contribution <= 2.5 else "off"
+        st.metric(
+            label="⭐ 活躍貢献度",
+            value=f"{contribution:.2f}/5",
+            delta=cont_delta,
+            delta_color=cont_color
+        )
+        st.caption("パフォーマンス評価")
     
     with col4:
         intention = kpis['avg_long_term_intention']
-        int_class = "kpi-card-green" if intention >= 4 else "kpi-card-red" if intention <= 2.5 else "kpi-card-orange"
-        st.markdown(f"""
-        <div class="kpi-card {int_class}">
-            <div class="kpi-title">勤続意向</div>
-            <div class="kpi-value">{intention:.2f}<span class="kpi-unit">/5</span></div>
-            <div class="kpi-change">
-                <span class="kpi-icon">🏢</span>
-                定着意向
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        int_delta = "🏢 高い" if intention >= 4 else "⚠️ 低い" if intention <= 2.5 else "➖ 普通"
+        int_color = "normal" if intention >= 4 else "inverse" if intention <= 2.5 else "off"
+        st.metric(
+            label="🏢 勤続意向",
+            value=f"{intention:.2f}/5",
+            delta=int_delta,
+            delta_color=int_color
+        )
+        st.caption("長期定着意向")
     
-    # サブKPI（改良版デザイン）
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.divider()
+    st.subheader("📊 基本指標")
+    
+    # サブKPI
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.markdown(f"""
-        <div class="kpi-card kpi-card-blue">
-            <div class="kpi-title">平均年収</div>
-            <div class="kpi-value">{kpis['avg_salary']:.0f}<span class="kpi-unit">万円</span></div>
-            <div class="kpi-change">
-                <span class="kpi-icon">💰</span>
-                年収レベル
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.metric(
+            label="💰 平均年収",
+            value=f"{kpis['avg_salary']:.0f}万円",
+            delta="年収レベル"
+        )
+        st.caption("給与水準")
     
     with col2:
-        overtime_class = "kpi-card-red" if kpis['avg_overtime'] >= 40 else "kpi-card-green" if kpis['avg_overtime'] <= 20 else "kpi-card-orange"
-        st.markdown(f"""
-        <div class="kpi-card {overtime_class}">
-            <div class="kpi-title">月平均残業時間</div>
-            <div class="kpi-value">{kpis['avg_overtime']:.1f}<span class="kpi-unit">h</span></div>
-            <div class="kpi-change">
-                <span class="kpi-icon">⏰</span>
-                労働時間
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        overtime_delta = "⚠️ 多い" if kpis['avg_overtime'] >= 40 else "✅ 適正" if kpis['avg_overtime'] <= 20 else "⚖️ 普通"
+        overtime_color = "inverse" if kpis['avg_overtime'] >= 40 else "normal" if kpis['avg_overtime'] <= 20 else "off"
+        st.metric(
+            label="⏰ 月平均残業時間",
+            value=f"{kpis['avg_overtime']:.1f}h",
+            delta=overtime_delta,
+            delta_color=overtime_color
+        )
+        st.caption("労働時間管理")
     
     with col3:
-        leave_class = "kpi-card-green" if kpis['avg_leave_usage'] >= 80 else "kpi-card-red" if kpis['avg_leave_usage'] <= 50 else "kpi-card-orange"
-        st.markdown(f"""
-        <div class="kpi-card {leave_class}">
-            <div class="kpi-title">有給取得率</div>
-            <div class="kpi-value">{kpis['avg_leave_usage']:.1f}<span class="kpi-unit">%</span></div>
-            <div class="kpi-change">
-                <span class="kpi-icon">🏖️</span>
-                休暇利用
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        leave_delta = "✅ 良好" if kpis['avg_leave_usage'] >= 80 else "⚠️ 低い" if kpis['avg_leave_usage'] <= 50 else "➖ 普通"
+        leave_color = "normal" if kpis['avg_leave_usage'] >= 80 else "inverse" if kpis['avg_leave_usage'] <= 50 else "off"
+        st.metric(
+            label="🏖️ 有給取得率",
+            value=f"{kpis['avg_leave_usage']:.1f}%",
+            delta=leave_delta,
+            delta_color=leave_color
+        )
+        st.caption("休暇利用状況")
     
     with col4:
-        st.markdown(f"""
-        <div class="kpi-card kpi-card-blue">
-            <div class="kpi-title">回答者数</div>
-            <div class="kpi-value">{kpis['total_employees']}<span class="kpi-unit">名</span></div>
-            <div class="kpi-change">
-                <span class="kpi-icon">👥</span>
-                全回答者
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.metric(
+            label="👥 回答者数",
+            value=f"{kpis['total_employees']}名",
+            delta="全回答者"
+        )
+        st.caption("調査参加者")
 
 def show_satisfaction_analysis(data, kpis):
     """満足度分析を表示"""
-    st.markdown('<div class="section-header"><h2>📈 満足度・期待度分析</h2></div>', unsafe_allow_html=True)
+    st.header("📈 満足度・期待度分析")
     
     if not kpis or 'satisfaction_by_category' not in kpis:
         st.error("満足度データが利用できません")
@@ -726,7 +706,7 @@ def show_satisfaction_analysis(data, kpis):
 
 def show_department_analysis(data, kpis):
     """部署別分析を表示"""
-    st.markdown('<div class="section-header"><h2>🏢 部署別・詳細分析</h2></div>', unsafe_allow_html=True)
+    st.header("🏢 部署別・詳細分析")
     
     if 'employee_data' not in data:
         st.error("部署別データが利用できません")
