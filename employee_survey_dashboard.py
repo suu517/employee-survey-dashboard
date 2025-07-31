@@ -704,13 +704,8 @@ def create_dummy_data():
         
         overall_satisfaction = max(1, min(5, int(base_satisfaction + satisfaction_noise)))
         
-        # eNPSスコア（満足度と相関）
-        if overall_satisfaction >= 4:
-            nps_score = np.random.choice(range(7, 11), p=[0.1, 0.2, 0.3, 0.4])
-        elif overall_satisfaction >= 3:
-            nps_score = np.random.choice(range(3, 8), p=[0.1, 0.2, 0.3, 0.25, 0.15])
-        else:
-            nps_score = np.random.choice(range(0, 6), p=[0.2, 0.25, 0.25, 0.15, 0.1, 0.05])
+        # nps_scoreは総合満足度と同じ値を使用（1-5スケール）
+        nps_score = overall_satisfaction
         
         # その他の指標
         contribution_score = max(1, min(5, int(base_satisfaction + np.random.normal(0, 0.4))))
@@ -757,10 +752,19 @@ def calculate_kpis(data):
     
     df = data['employee_data']
     
-    # NPS計算
-    promoters = len(df[df['nps_score'] >= 9])
-    detractors = len(df[df['nps_score'] <= 6])
-    nps = ((promoters - detractors) / len(df)) * 100 if len(df) > 0 else 0
+    # eNPS計算（総合満足度ベース）
+    # 総合満足度：1-5点 → eNPS換算：1-2点=-100～-50, 3点=-25～25, 4-5点=25～100
+    avg_satisfaction = df['overall_satisfaction'].mean() if len(df) > 0 else 3
+    
+    # 1-5点の満足度を-100～100のeNPSスケールに変換
+    if avg_satisfaction <= 2:
+        nps = -100 + (avg_satisfaction - 1) * 50  # 1点=-100, 2点=-50
+    elif avg_satisfaction <= 3:
+        nps = -50 + (avg_satisfaction - 2) * 75   # 2点=-50, 3点=25
+    elif avg_satisfaction <= 4:  
+        nps = 25 + (avg_satisfaction - 3) * 25    # 3点=25, 4点=50
+    else:
+        nps = 50 + (avg_satisfaction - 4) * 50    # 4点=50, 5点=100
     
     # 満足度カテゴリー
     categories = ['勤務時間', '休日休暇', '有給休暇', '勤務体系', '昇給昇格', '人間関係', 
@@ -821,7 +825,7 @@ def show_kpi_overview(data, kpis):
             delta=nps_delta,
             delta_color=nps_color
         )
-        st.caption("会社の情報：自分の望む様な人を招き求める際に、この会社への転職・就職をその人に薦める程のメリットを感じることができますか？")
+        st.caption("総合満足度：自社の現在の働く環境や条件、周りの人間関係なども含めあなたはどの程度満足されていますか？")
     
     with col2:
         satisfaction = kpis['avg_satisfaction']
