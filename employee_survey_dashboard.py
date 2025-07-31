@@ -720,11 +720,33 @@ def show_satisfaction_analysis(data, kpis):
             fig.add_hline(y=mid_y, line_dash="dash", line_color="rgba(128, 128, 128, 0.8)", line_width=2)
             fig.add_vline(x=mid_x, line_dash="dash", line_color="rgba(128, 128, 128, 0.8)", line_width=2)
             
-            # データポイントを追加
+            # データポイントを追加（テキスト重なり回避版）
             colors = []
             sizes = []
             symbols = []
-            for _, row in gap_df.iterrows():
+            text_positions = []
+            
+            # テキスト位置を動的に決定する関数
+            def get_optimal_text_position(x, y, index, total_points):
+                positions = [
+                    "top center", "bottom center", "middle left", "middle right",
+                    "top left", "top right", "bottom left", "bottom right"
+                ]
+                
+                # 象限ベースの基本位置を決定
+                if x >= mid_x and y >= mid_y:  # 理想的
+                    base_pos = ["top center", "top right", "middle right"]
+                elif x < mid_x and y >= mid_y:  # 要改善
+                    base_pos = ["top center", "top left", "middle left"]
+                elif x >= mid_x and y < mid_y:  # 満足超過
+                    base_pos = ["bottom center", "bottom right", "middle right"]
+                else:  # 機会領域
+                    base_pos = ["bottom center", "bottom left", "middle left"]
+                
+                # インデックスに基づいて位置を循環選択
+                return base_pos[index % len(base_pos)]
+            
+            for i, (_, row) in enumerate(gap_df.iterrows()):
                 x, y = row['満足度'], row['期待度']
                 gap = row['ギャップ']
                 
@@ -742,29 +764,71 @@ def show_satisfaction_analysis(data, kpis):
                     colors.append('#ED8936')  # オレンジ - 機会領域
                     symbols.append('square')
                 
-                sizes.append(max(10, abs(gap) * 20 + 15))
+                sizes.append(max(12, abs(gap) * 20 + 15))
+                text_positions.append(get_optimal_text_position(x, y, i, len(gap_df)))
             
+            # マーカーのみを表示（テキストは分離）
             fig.add_trace(go.Scatter(
                 x=gap_df['満足度'],
                 y=gap_df['期待度'],
-                mode='markers+text',
+                mode='markers',
                 marker=dict(
                     size=sizes,
                     color=colors,
                     symbol=symbols,
                     line=dict(width=2, color='white'),
-                    opacity=0.8
+                    opacity=0.9
                 ),
-                text=gap_df['カテゴリ'],
-                textposition="top center",
-                textfont=dict(size=10, color='black'),
-                hovertemplate='<b>%{text}</b><br>' +
+                hovertemplate='<b>%{customdata[0]}</b><br>' +
                             '満足度: %{x:.1f}<br>' +
                             '期待度: %{y:.1f}<br>' +
-                            'ギャップ: %{customdata:.2f}<extra></extra>',
-                customdata=gap_df['ギャップ'],
-                showlegend=False
+                            'ギャップ: %{customdata[1]:.2f}<br>' +
+                            '象限: %{customdata[2]}<extra></extra>',
+                customdata=list(zip(
+                    gap_df['カテゴリ'], 
+                    gap_df['ギャップ'],
+                    [classify_quadrant(row) for _, row in gap_df.iterrows()]
+                )),
+                showlegend=False,
+                name=""
             ))
+            
+            # テキストを個別に追加（重なり回避）
+            for i, (_, row) in enumerate(gap_df.iterrows()):
+                x, y = row['満足度'], row['期待度']
+                category = row['カテゴリ']
+                
+                # テキストオフセットを計算
+                offset_map = {
+                    "top center": (0, 0.15),
+                    "bottom center": (0, -0.15),
+                    "middle left": (-0.25, 0),
+                    "middle right": (0.25, 0),
+                    "top left": (-0.2, 0.15),
+                    "top right": (0.2, 0.15),
+                    "bottom left": (-0.2, -0.15),
+                    "bottom right": (0.2, -0.15)
+                }
+                
+                text_pos = text_positions[i]
+                offset_x, offset_y = offset_map.get(text_pos, (0, 0.15))
+                
+                fig.add_annotation(
+                    x=x + offset_x,
+                    y=y + offset_y,
+                    text=f"<b>{category}</b>",
+                    showarrow=True,
+                    arrowhead=2,
+                    arrowsize=1,
+                    arrowwidth=1,
+                    arrowcolor=colors[i],
+                    ax=0,
+                    ay=-15 if "top" in text_pos else 15 if "bottom" in text_pos else 0,
+                    font=dict(size=9, color='#1f2937'),
+                    bgcolor='rgba(255, 255, 255, 0.8)',
+                    bordercolor=colors[i],
+                    borderwidth=1
+                )
             
             # レイアウト設定
             fig.update_layout(
@@ -787,7 +851,7 @@ def show_satisfaction_analysis(data, kpis):
                     gridcolor='rgba(128, 128, 128, 0.2)',
                     dtick=1
                 ),
-                height=600,
+                height=650,
                 plot_bgcolor='white',
                 paper_bgcolor='white'
             )
