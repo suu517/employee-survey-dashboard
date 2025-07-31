@@ -18,6 +18,8 @@ import networkx as nx
 from sklearn.feature_extraction.text import TfidfVectorizer
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
+import locale
 
 # ページ設定
 st.set_page_config(
@@ -378,6 +380,108 @@ def build_cooccurrence_network(texts, min_cooccurrence=1):
         G.add_edge(word1, word2, weight=weight)
     
     return G, filtered_cooccurrence
+
+def load_timestamp_data():
+    """タイムスタンプデータを読み込み・処理する"""
+    try:
+        excel_path = './data.xlsx'
+        if not os.path.exists(excel_path):
+            return None
+            
+        # Responsesシートの生データを読み込み
+        df_raw = pd.read_excel(excel_path, sheet_name='Responses', header=None)
+        
+        if len(df_raw) < 2:
+            return None
+        
+        # タイムスタンプカラムのインデックス（0ベース）
+        start_time_col = 2  # 回答開始（列3）
+        end_time_col = 3    # 回答完了（列4）
+        
+        timestamp_data = []
+        
+        # データ行（2行目以降）からタイムスタンプを取得
+        for row_idx in range(1, len(df_raw)):
+            try:
+                start_time_raw = df_raw.iloc[row_idx, start_time_col]
+                end_time_raw = df_raw.iloc[row_idx, end_time_col]
+                
+                if pd.notna(start_time_raw) and pd.notna(end_time_raw):
+                    # 日本語日時フォーマットをパース
+                    start_time = parse_japanese_datetime(str(start_time_raw))
+                    end_time = parse_japanese_datetime(str(end_time_raw))
+                    
+                    if start_time and end_time:
+                        duration_minutes = (end_time - start_time).total_seconds() / 60
+                        timestamp_data.append({
+                            'response_id': row_idx,
+                            'start_time': start_time,
+                            'end_time': end_time,
+                            'duration_minutes': duration_minutes,
+                            'date': start_time.date(),
+                            'hour': start_time.hour,
+                            'weekday': start_time.weekday(),
+                            'weekday_name': ['月', '火', '水', '木', '金', '土', '日'][start_time.weekday()]
+                        })
+            except Exception as e:
+                continue
+        
+        return pd.DataFrame(timestamp_data) if timestamp_data else None
+        
+    except Exception as e:
+        st.error(f"タイムスタンプデータ読み込みエラー: {e}")
+        return None
+
+def parse_japanese_datetime(datetime_str):
+    """日本語の日時文字列を解析してdatetimeオブジェクトに変換"""
+    try:
+        # "6月 08, 2025 08:39:24 午後" のような形式を処理
+        import re
+        
+        # 月名の日本語を英語に変換
+        month_map = {
+            '1月': 'Jan', '2月': 'Feb', '3月': 'Mar', '4月': 'Apr',
+            '5月': 'May', '6月': 'Jun', '7月': 'Jul', '8月': 'Aug', 
+            '9月': 'Sep', '10月': 'Oct', '11月': 'Nov', '12月': 'Dec'
+        }
+        
+        datetime_str = str(datetime_str).strip()
+        
+        # 午前/午後の処理
+        is_pm = '午後' in datetime_str
+        datetime_str = datetime_str.replace('午前', '').replace('午後', '').strip()
+        
+        # 日本語の月を英語に変換
+        for jp_month, en_month in month_map.items():
+            if jp_month in datetime_str:
+                datetime_str = datetime_str.replace(jp_month, en_month)
+                break
+        
+        # パターンマッチングで日時要素を抽出
+        pattern = r'(\w+)\s+(\d+),\s+(\d+)\s+(\d+):(\d+):(\d+)'
+        match = re.search(pattern, datetime_str)
+        
+        if match:
+            month_str, day, year, hour, minute, second = match.groups()
+            
+            # 月名を数値に変換
+            month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            month = month_names.index(month_str) + 1
+            
+            # 午後の場合は12時間を追加（ただし12時の場合は除く）
+            hour_int = int(hour)
+            if is_pm and hour_int != 12:
+                hour_int += 12
+            elif not is_pm and hour_int == 12:
+                hour_int = 0
+            
+            return datetime(int(year), month, int(day), hour_int, int(minute), int(second))
+        
+        return None
+        
+    except Exception as e:
+        return None
 
 def process_real_survey_data(df):
     """実際の調査データを処理する"""
@@ -1320,6 +1424,225 @@ def show_text_mining_analysis():
         else:
             st.info(f"{comment_type}のデータがありません。")
 
+def show_time_series_analysis():
+    """時系列分析を表示"""
+    st.header("📈 時系列分析")
+    
+    # タイムスタンプデータの読み込み
+    with st.spinner("🕐 タイムスタンプデータを読み込み中..."):
+        timestamp_data = load_timestamp_data()
+    
+    if timestamp_data is None or len(timestamp_data) == 0:
+        st.warning("タイムスタンプデータが読み込めませんでした。回答データが不足している可能性があります。")
+        
+        # ダミーの時系列データを生成してデモンストレーション
+        st.info("📊 デモンストレーション用のサンプル時系列データを表示します")
+        timestamp_data = create_dummy_timestamp_data()
+    
+    # タブを作成
+    tabs = st.tabs(["📊 回答数推移", "🕐 回答時間帯分析", "⏱️ 所要時間分析", "📅 曜日別分析"])
+    
+    with tabs[0]:  # 回答数推移
+        st.subheader("📈 回答数の推移")
+        
+        if len(timestamp_data) > 0:
+            # 日別回答数を集計
+            daily_counts = timestamp_data.groupby('date').size().reset_index(name='回答数')
+            daily_counts['date'] = pd.to_datetime(daily_counts['date'])
+            
+            # 折れ線グラフ
+            fig = px.line(
+                daily_counts,
+                x='date',
+                y='回答数',
+                title='日別回答数推移',
+                markers=True
+            )
+            fig.update_layout(
+                xaxis_title='日付',
+                yaxis_title='回答数',
+                height=400
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # 統計サマリー
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("総回答数", len(timestamp_data))
+            with col2:
+                avg_daily = daily_counts['回答数'].mean()
+                st.metric("1日平均回答数", f"{avg_daily:.1f}")
+            with col3:
+                peak_day = daily_counts.loc[daily_counts['回答数'].idxmax(), 'date'].strftime('%Y-%m-%d')
+                peak_count = daily_counts['回答数'].max()
+                st.metric("最大回答日", f"{peak_count}件 ({peak_day})")
+        else:
+            st.info("表示するデータがありません。")
+    
+    with tabs[1]:  # 回答時間帯分析
+        st.subheader("🕐 時間帯別回答分析")
+        
+        if len(timestamp_data) > 0:
+            # 時間帯別回答数を集計
+            hourly_counts = timestamp_data.groupby('hour').size().reset_index(name='回答数')
+            
+            # 棒グラフ
+            fig = px.bar(
+                hourly_counts,
+                x='hour',
+                y='回答数',
+                title='時間帯別回答数分布',
+                color='回答数',
+                color_continuous_scale='viridis'
+            )
+            fig.update_layout(
+                xaxis_title='時間（24時間表記）',
+                yaxis_title='回答数',
+                height=400,
+                xaxis=dict(tickmode='linear', dtick=1)
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # ピーク時間帯の特定
+            peak_hour = hourly_counts.loc[hourly_counts['回答数'].idxmax(), 'hour']
+            peak_count = hourly_counts['回答数'].max()
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("ピーク時間帯", f"{peak_hour:02d}:00-{peak_hour+1:02d}:00")
+            with col2:
+                st.metric("ピーク時間帯回答数", f"{peak_count}件")
+            
+            # 時間帯別の詳細データ
+            st.subheader("📋 時間帯別詳細")
+            hourly_detailed = timestamp_data.groupby('hour').agg({
+                'duration_minutes': 'mean',
+                'response_id': 'count'
+            }).round(1)
+            hourly_detailed.columns = ['平均所要時間(分)', '回答数']
+            st.dataframe(hourly_detailed, use_container_width=True)
+        else:
+            st.info("表示するデータがありません。")
+    
+    with tabs[2]:  # 所要時間分析
+        st.subheader("⏱️ 回答所要時間分析")
+        
+        if len(timestamp_data) > 0:
+            # ヒストグラム
+            fig = px.histogram(
+                timestamp_data,
+                x='duration_minutes',
+                nbins=20,
+                title='回答所要時間分布',
+                labels={'duration_minutes': '所要時間（分）', 'count': '回答数'}
+            )
+            fig.update_layout(height=400)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # 統計指標
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                avg_duration = timestamp_data['duration_minutes'].mean()
+                st.metric("平均所要時間", f"{avg_duration:.1f}分")
+            with col2:
+                median_duration = timestamp_data['duration_minutes'].median()
+                st.metric("中央値", f"{median_duration:.1f}分")
+            with col3:
+                min_duration = timestamp_data['duration_minutes'].min()
+                st.metric("最短時間", f"{min_duration:.1f}分")
+            with col4:
+                max_duration = timestamp_data['duration_minutes'].max()
+                st.metric("最長時間", f"{max_duration:.1f}分")
+            
+            # 所要時間の箱ひげ図
+            fig_box = px.box(
+                timestamp_data,
+                y='duration_minutes',
+                title='回答所要時間の分布（箱ひげ図）'
+            )
+            fig_box.update_layout(height=400, yaxis_title='所要時間（分）')
+            st.plotly_chart(fig_box, use_container_width=True)
+        else:
+            st.info("表示するデータがありません。")
+    
+    with tabs[3]:  # 曜日別分析
+        st.subheader("📅 曜日別回答分析")
+        
+        if len(timestamp_data) > 0:
+            # 曜日別回答数を集計
+            weekday_counts = timestamp_data.groupby(['weekday', 'weekday_name']).size().reset_index(name='回答数')
+            weekday_counts = weekday_counts.sort_values('weekday')
+            
+            # 棒グラフ
+            fig = px.bar(
+                weekday_counts,
+                x='weekday_name',
+                y='回答数',
+                title='曜日別回答数分布',
+                color='回答数',
+                color_continuous_scale='plasma'
+            )
+            fig.update_layout(
+                xaxis_title='曜日',
+                yaxis_title='回答数',
+                height=400
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # 曜日別の詳細統計
+            weekday_detailed = timestamp_data.groupby(['weekday', 'weekday_name']).agg({
+                'duration_minutes': ['mean', 'count'],
+                'hour': 'mean'
+            }).round(1)
+            weekday_detailed.columns = ['平均所要時間(分)', '回答数', '平均回答時間(時)']
+            weekday_detailed = weekday_detailed.reset_index()[['weekday_name', '平均所要時間(分)', '回答数', '平均回答時間(時)']]
+            weekday_detailed.columns = ['曜日', '平均所要時間(分)', '回答数', '平均回答時間(時)']
+            
+            st.subheader("📊 曜日別詳細統計")
+            st.dataframe(weekday_detailed, use_container_width=True, hide_index=True)
+        else:
+            st.info("表示するデータがありません。")
+
+def create_dummy_timestamp_data():
+    """デモ用のダミータイムスタンプデータを生成"""
+    np.random.seed(42)
+    
+    # 過去30日間のランダムな日時を生成
+    base_date = datetime.now() - timedelta(days=30)
+    dummy_data = []
+    
+    for i in range(50):  # 50件のサンプルデータ
+        # ランダムな日時を生成（平日の9-18時により多く分布）
+        days_offset = np.random.randint(0, 30)
+        if np.random.random() < 0.7:  # 70%の確率で平日の業務時間内
+            hour = np.random.randint(9, 18)
+        else:  # 30%の確率でその他の時間
+            hour = np.random.randint(0, 24)
+        
+        start_time = base_date + timedelta(
+            days=days_offset,
+            hours=hour,
+            minutes=np.random.randint(0, 60),
+            seconds=np.random.randint(0, 60)
+        )
+        
+        # 所要時間は5-30分の範囲でランダム
+        duration = np.random.uniform(5, 30)
+        end_time = start_time + timedelta(minutes=duration)
+        
+        dummy_data.append({
+            'response_id': i + 1,
+            'start_time': start_time,
+            'end_time': end_time,
+            'duration_minutes': duration,
+            'date': start_time.date(),
+            'hour': start_time.hour,
+            'weekday': start_time.weekday(),
+            'weekday_name': ['月', '火', '水', '木', '金', '土', '日'][start_time.weekday()]
+        })
+    
+    return pd.DataFrame(dummy_data)
+
 def show_department_analysis(data, kpis):
     """部署別分析を表示"""
     st.header("🏢 部署別・詳細分析")
@@ -1531,7 +1854,7 @@ def main():
         # ページ選択
         page = st.radio(
             "📋 分析ページ選択",
-            ["📊 KPI概要", "📈 満足度分析", "🏢 詳細分析", "📝 テキストマイニング"],
+            ["📊 KPI概要", "📈 満足度分析", "🏢 詳細分析", "📝 テキストマイニング", "⏰ 時系列分析"],
             index=0
         )
         
@@ -1569,6 +1892,8 @@ def main():
         show_department_analysis(data, kpis)
     elif page == "📝 テキストマイニング":
         show_text_mining_analysis()
+    elif page == "⏰ 時系列分析":
+        show_time_series_analysis()
 
 if __name__ == "__main__":
     main()
