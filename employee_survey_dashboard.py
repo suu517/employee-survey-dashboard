@@ -667,13 +667,26 @@ def show_satisfaction_analysis(data, kpis):
     
     with tab3:
         # 期待度ギャップ分析
-        if 'gap_by_category' in kpis:
-            gap_df = pd.DataFrame({
-                'カテゴリ': list(kpis['gap_by_category'].keys()),
-                'ギャップ': list(kpis['gap_by_category'].values()),
-                '満足度': satisfaction_values,
-                '期待度': list(kpis['expectation_by_category'].values())
-            })
+        if ('gap_by_category' in kpis and 
+            'expectation_by_category' in kpis and 
+            len(satisfaction_values) > 0):
+            
+            try:
+                gap_df = pd.DataFrame({
+                    'カテゴリ': list(kpis['gap_by_category'].keys()),
+                    'ギャップ': list(kpis['gap_by_category'].values()),
+                    '満足度': satisfaction_values,
+                    '期待度': list(kpis['expectation_by_category'].values())
+                })
+                
+                # データフレームが有効かチェック
+                if gap_df.empty or len(gap_df) == 0:
+                    st.warning("期待度ギャップ分析用のデータが不足しています。")
+                    return
+                    
+            except Exception as e:
+                st.error(f"データの準備中にエラーが発生しました: {str(e)}")
+                return
             
             # 4象限プロット（大幅改善版）
             fig = go.Figure()
@@ -820,27 +833,43 @@ def show_satisfaction_analysis(data, kpis):
                 else:
                     return '🔄 機会領域'
             
-            gap_display = gap_df.copy()
-            gap_display['象限'] = gap_display.apply(classify_quadrant, axis=1)
-            gap_display['ギャップ評価'] = gap_display['ギャップ'].apply(
-                lambda x: '😊 満足>期待' if x > 0.3 else '😔 期待>満足' if x < -0.3 else '😐 ほぼ同等'
-            )
-            
-            # 優先度を設定
-            priority_map = {'🚨 要改善': 1, '🔄 機会領域': 2, '💎 満足超過': 3, '🎯 理想的': 4}
-            gap_display['優先度'] = gap_display['象限'].map(priority_map)
-            
-            # 表示用に整理
-            display_df = gap_display[['カテゴリ', '満足度', '期待度', 'ギャップ', '象限', 'ギャップ評価', '優先度']].sort_values('優先度')
-            display_df = display_df.round({'満足度': 1, '期待度': 1, 'ギャップ': 2})
-            display_df = display_df.drop_duplicates().reset_index(drop=True)
-            
-            # 優先度カラムを除外して表示
-            st.dataframe(
-                display_df[['カテゴリ', '満足度', '期待度', 'ギャップ', '象限', 'ギャップ評価']], 
-                use_container_width=True,
-                hide_index=True
-            )
+            try:
+                gap_display = gap_df.copy()
+                gap_display['象限'] = gap_display.apply(classify_quadrant, axis=1)
+                gap_display['ギャップ評価'] = gap_display['ギャップ'].apply(
+                    lambda x: '😊 満足>期待' if x > 0.3 else '😔 期待>満足' if x < -0.3 else '😐 ほぼ同等'
+                )
+                
+                # 優先度を設定
+                priority_map = {'🚨 要改善': 1, '🔄 機会領域': 2, '💎 満足超過': 3, '🎯 理想的': 4}
+                gap_display['優先度'] = gap_display['象限'].map(priority_map)
+                
+                # NaNの処理
+                gap_display['優先度'] = gap_display['優先度'].fillna(5)
+                
+                # 必要なカラムが存在するかチェック
+                required_columns = ['カテゴリ', '満足度', '期待度', 'ギャップ', '象限', 'ギャップ評価', '優先度']
+                if all(col in gap_display.columns for col in required_columns):
+                    # 表示用に整理
+                    display_df = gap_display[required_columns].sort_values('優先度')
+                    display_df = display_df.round({'満足度': 1, '期待度': 1, 'ギャップ': 2})
+                    display_df = display_df.drop_duplicates().reset_index(drop=True)
+                    
+                    # 優先度カラムを除外して表示
+                    st.dataframe(
+                        display_df[['カテゴリ', '満足度', '期待度', 'ギャップ', '象限', 'ギャップ評価']], 
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                else:
+                    st.error("必要なデータカラムが不足しています。")
+                    
+            except Exception as e:
+                st.error(f"テーブル表示中にエラーが発生しました: {str(e)}")
+                st.info("基本的な満足度・期待度データは利用可能です。詳細な分析表示のみエラーが発生しています。")
+                
+        else:
+            st.warning("期待度ギャップ分析に必要なデータが不足しています。満足度データまたは期待度データが利用できません。")
 
 def show_department_analysis(data, kpis):
     """部署別分析を表示"""
