@@ -706,26 +706,26 @@ def show_satisfaction_analysis(data, kpis):
                 else:
                     return '🔄 機会領域'
             
-            # 象限の背景色
+            # 象限の背景色（拡大版 - 文字の視認性向上）
             fig.add_shape(
-                type="rect", x0=1, y0=mid_y, x1=mid_x, y1=5,
-                fillcolor="rgba(255, 99, 132, 0.1)", line=dict(width=0),
-                name="高期待・低満足"
+                type="rect", x0=0.5, y0=mid_y, x1=mid_x, y1=5.5,
+                fillcolor="rgba(245, 101, 101, 0.15)", line=dict(width=0),
+                name="要改善（低満足・高期待）"
             )
             fig.add_shape(
-                type="rect", x0=mid_x, y0=mid_y, x1=5, y1=5,
-                fillcolor="rgba(75, 192, 192, 0.1)", line=dict(width=0),
-                name="高期待・高満足"
+                type="rect", x0=mid_x, y0=mid_y, x1=5.5, y1=5.5,
+                fillcolor="rgba(72, 187, 120, 0.15)", line=dict(width=0),
+                name="理想的（高満足・高期待）"
             )
             fig.add_shape(
-                type="rect", x0=1, y0=1, x1=mid_x, y1=mid_y,
-                fillcolor="rgba(255, 206, 86, 0.1)", line=dict(width=0),
-                name="低期待・低満足"
+                type="rect", x0=0.5, y0=0.5, x1=mid_x, y1=mid_y,
+                fillcolor="rgba(237, 137, 54, 0.15)", line=dict(width=0),
+                name="機会領域（低満足・低期待）"
             )
             fig.add_shape(
-                type="rect", x0=mid_x, y0=1, x1=5, y1=mid_y,
-                fillcolor="rgba(153, 102, 255, 0.1)", line=dict(width=0),
-                name="低期待・高満足"
+                type="rect", x0=mid_x, y0=0.5, x1=5.5, y1=mid_y,
+                fillcolor="rgba(159, 122, 234, 0.15)", line=dict(width=0),
+                name="満足超過（高満足・低期待）"
             )
             
             # 区切り線を追加
@@ -776,7 +776,7 @@ def show_satisfaction_analysis(data, kpis):
                     colors.append('#ED8936')  # オレンジ - 機会領域
                     symbols.append('circle')
                 
-                sizes.append(max(12, abs(gap) * 20 + 15))
+                sizes.append(20)  # 統一サイズ
                 text_positions.append(get_optimal_text_position(x, y, i, len(gap_df)))
             
             # マーカーのみを表示（テキストは分離）
@@ -851,14 +851,14 @@ def show_satisfaction_analysis(data, kpis):
                 },
                 xaxis=dict(
                     title="満足度 →",
-                    range=[0.8, 5.2],
+                    range=[0.3, 5.7],
                     showgrid=True,
                     gridcolor='rgba(128, 128, 128, 0.2)',
                     dtick=1
                 ),
                 yaxis=dict(
                     title="↑ 期待度",
-                    range=[0.8, 5.2],
+                    range=[0.3, 5.7],
                     showgrid=True,
                     gridcolor='rgba(128, 128, 128, 0.2)',
                     dtick=1
