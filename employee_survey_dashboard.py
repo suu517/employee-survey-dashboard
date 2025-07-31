@@ -704,8 +704,11 @@ def create_dummy_data():
         
         overall_satisfaction = max(1, min(5, int(base_satisfaction + satisfaction_noise)))
         
-        # nps_scoreは総合満足度と同じ値を使用（1-5スケール）
-        nps_score = overall_satisfaction
+        # 総合評価（eNPS用）を別途生成
+        overall_evaluation = max(1, min(5, int(base_satisfaction + np.random.normal(0, 0.4))))
+        
+        # nps_scoreは総合評価と同じ値を使用（1-5スケール）
+        nps_score = overall_evaluation
         
         # その他の指標
         contribution_score = max(1, min(5, int(base_satisfaction + np.random.normal(0, 0.4))))
@@ -721,6 +724,7 @@ def create_dummy_data():
             'paid_leave_rate': max(10, min(100, int(np.random.normal(65, 20)))),
             'nps_score': nps_score,
             'overall_satisfaction': overall_satisfaction,
+            'overall_evaluation': overall_evaluation,
             'long_term_intention': long_term_intention,
             'contribution_score': contribution_score,
             # フィルター用項目
@@ -752,19 +756,23 @@ def calculate_kpis(data):
     
     df = data['employee_data']
     
-    # eNPS計算（総合満足度ベース）
-    # 総合満足度：1-5点 → eNPS換算：1-2点=-100～-50, 3点=-25～25, 4-5点=25～100
-    avg_satisfaction = df['overall_satisfaction'].mean() if len(df) > 0 else 3
-    
-    # 1-5点の満足度を-100～100のeNPSスケールに変換
-    if avg_satisfaction <= 2:
-        nps = -100 + (avg_satisfaction - 1) * 50  # 1点=-100, 2点=-50
-    elif avg_satisfaction <= 3:
-        nps = -50 + (avg_satisfaction - 2) * 75   # 2点=-50, 3点=25
-    elif avg_satisfaction <= 4:  
-        nps = 25 + (avg_satisfaction - 3) * 25    # 3点=25, 4点=50
+    # eNPS計算（総合評価ベース）
+    # 総合評価：1-5点 → eNPS換算：1-2点=-100～-50, 3点=-25～25, 4-5点=25～100
+    if 'overall_evaluation' in df.columns:
+        avg_evaluation = df['overall_evaluation'].mean()
     else:
-        nps = 50 + (avg_satisfaction - 4) * 50    # 4点=50, 5点=100
+        # フォールバック：overall_evaluationがない場合はnps_scoreを使用
+        avg_evaluation = df['nps_score'].mean() if 'nps_score' in df.columns else 3
+    
+    # 1-5点の総合評価を-100～100のeNPSスケールに変換
+    if avg_evaluation <= 2:
+        nps = -100 + (avg_evaluation - 1) * 50  # 1点=-100, 2点=-50
+    elif avg_evaluation <= 3:
+        nps = -50 + (avg_evaluation - 2) * 75   # 2点=-50, 3点=25
+    elif avg_evaluation <= 4:  
+        nps = 25 + (avg_evaluation - 3) * 25    # 3点=25, 4点=50
+    else:
+        nps = 50 + (avg_evaluation - 4) * 50    # 4点=50, 5点=100
     
     # 満足度カテゴリー
     categories = ['勤務時間', '休日休暇', '有給休暇', '勤務体系', '昇給昇格', '人間関係', 
@@ -825,7 +833,7 @@ def show_kpi_overview(data, kpis):
             delta=nps_delta,
             delta_color=nps_color
         )
-        st.caption("総合満足度：自社の現在の働く環境や条件、周りの人間関係なども含めあなたはどの程度満足されていますか？")
+        st.caption("総合評価")
     
     with col2:
         satisfaction = kpis['avg_satisfaction']
