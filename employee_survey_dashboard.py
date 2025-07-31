@@ -643,29 +643,102 @@ def extract_satisfaction_score_detailed(row, keyword):
 def create_dummy_data():
     """ダミーデータを作成（データが読み込めない場合）"""
     np.random.seed(42)
-    n_employees = 50
+    n_employees = 30
     
-    employee_data = pd.DataFrame({
-        'response_id': range(1, n_employees + 1),
-        'department': np.random.choice(['マーケティング部', 'エンジニアリング部', '人事部', '営業部'], n_employees),
-        'position': np.random.choice(['役職なし', 'チームリーダー', 'マネージャー'], n_employees),
-        'start_year': np.random.choice(range(2018, 2025), n_employees),
-        'annual_salary': np.random.normal(500, 100, n_employees).clip(300, 1000).astype(int),
-        'monthly_overtime': np.random.normal(20, 10, n_employees).clip(0, 60).astype(int),
-        'paid_leave_rate': np.random.normal(60, 20, n_employees).clip(10, 100).astype(int),
-        'nps_score': np.random.choice(range(0, 11), n_employees),
-        'overall_satisfaction': np.random.choice(range(1, 6), n_employees),
-        'long_term_intention': np.random.choice(range(1, 6), n_employees),
-        'contribution_score': np.random.choice(range(1, 6), n_employees),
-        # フィルター用追加項目
-        'group': np.random.choice(['Aグループ', 'Bグループ', 'Cグループ'], n_employees),
-        'workplace': np.random.choice(['東京本社', '大阪支社', '名古屋支社', '福岡支社'], n_employees),
-        'employee_number': np.random.choice(['01-10', '11-20', '21-30', '31-40', '41-50'], n_employees),
-        'business_type': np.random.choice(['営業系', '技術系', '管理系', 'サポート系'], n_employees),
-        'region': np.random.choice(['関東', '関西', '中部', '九州'], n_employees),
-        'job_category': np.random.choice(['正社員', '契約社員', 'パート'], n_employees),
-        'age_group': np.random.choice(['20代', '30代', '40代', '50代以上'], n_employees),
-    })
+    # より現実的なデータ分布を作成
+    departments = ['マーケティング部', 'エンジニアリング部', '人事部', '営業部', '総務部', '経理部']
+    positions = ['役職なし', 'チームリーダー', 'マネージャー', '主任', '課長']
+    groups = ['Aグループ', 'Bグループ', 'Cグループ', 'Dグループ']
+    workplaces = ['東京本社', '大阪支社', '名古屋支社', '福岡支社', '横浜オフィス']
+    business_types = ['営業系', '技術系', '管理系', 'サポート系', '企画系']
+    regions = ['関東', '関西', '中部', '九州', '首都圏']
+    job_categories = ['正社員', '契約社員', 'パート', '派遣']
+    age_groups = ['20代', '30代', '40代', '50代以上']
+    
+    # 部署別に特徴のあるデータを生成
+    employee_data_list = []
+    
+    for i in range(n_employees):
+        department = np.random.choice(departments, p=[0.25, 0.3, 0.1, 0.25, 0.05, 0.05])
+        
+        # 部署に応じてポジションの分布を調整
+        if department in ['人事部', '総務部', '経理部']:
+            position = np.random.choice(positions, p=[0.4, 0.3, 0.2, 0.05, 0.05])
+        elif department == 'エンジニアリング部':
+            position = np.random.choice(positions, p=[0.6, 0.2, 0.1, 0.05, 0.05])
+        else:
+            position = np.random.choice(positions, p=[0.5, 0.25, 0.15, 0.05, 0.05])
+        
+        # 年齢層を設定
+        age_group = np.random.choice(age_groups, p=[0.3, 0.35, 0.25, 0.1])
+        
+        # 年齢に応じて経験年数を調整
+        if age_group == '20代':
+            start_year = np.random.choice(range(2020, 2025))
+            base_salary = np.random.normal(350, 50)
+        elif age_group == '30代':
+            start_year = np.random.choice(range(2015, 2023))
+            base_salary = np.random.normal(500, 80)
+        elif age_group == '40代':
+            start_year = np.random.choice(range(2010, 2020))
+            base_salary = np.random.normal(650, 100)
+        else:  # 50代以上
+            start_year = np.random.choice(range(2005, 2018))
+            base_salary = np.random.normal(750, 120)
+        
+        # ポジションに応じて給与を調整
+        if position == 'マネージャー':
+            salary_multiplier = 1.3
+        elif position == '課長':
+            salary_multiplier = 1.5
+        elif position in ['チームリーダー', '主任']:
+            salary_multiplier = 1.1
+        else:
+            salary_multiplier = 1.0
+        
+        annual_salary = int(max(300, min(1200, base_salary * salary_multiplier)))
+        
+        # 満足度指標（相関を持たせる）
+        base_satisfaction = np.random.normal(3.2, 0.8)
+        satisfaction_noise = np.random.normal(0, 0.3)
+        
+        overall_satisfaction = max(1, min(5, int(base_satisfaction + satisfaction_noise)))
+        
+        # eNPSスコア（満足度と相関）
+        if overall_satisfaction >= 4:
+            nps_score = np.random.choice(range(7, 11), p=[0.1, 0.2, 0.3, 0.4])
+        elif overall_satisfaction >= 3:
+            nps_score = np.random.choice(range(3, 8), p=[0.1, 0.2, 0.3, 0.25, 0.15])
+        else:
+            nps_score = np.random.choice(range(0, 6), p=[0.2, 0.25, 0.25, 0.15, 0.1, 0.05])
+        
+        # その他の指標
+        contribution_score = max(1, min(5, int(base_satisfaction + np.random.normal(0, 0.4))))
+        long_term_intention = max(1, min(5, int(base_satisfaction + np.random.normal(0, 0.5))))
+        
+        employee_data_list.append({
+            'response_id': i + 1,
+            'department': department,
+            'position': position,
+            'start_year': start_year,
+            'annual_salary': annual_salary,
+            'monthly_overtime': max(0, min(80, int(np.random.normal(25, 15)))),
+            'paid_leave_rate': max(10, min(100, int(np.random.normal(65, 20)))),
+            'nps_score': nps_score,
+            'overall_satisfaction': overall_satisfaction,
+            'long_term_intention': long_term_intention,
+            'contribution_score': contribution_score,
+            # フィルター用項目
+            'group': np.random.choice(groups),
+            'workplace': np.random.choice(workplaces),
+            'employee_number': f"{((i // 10) * 10 + 1):02d}-{((i // 10 + 1) * 10):02d}",
+            'business_type': np.random.choice(business_types),
+            'region': np.random.choice(regions),
+            'job_category': np.random.choice(job_categories, p=[0.7, 0.15, 0.1, 0.05]),
+            'age_group': age_group,
+        })
+    
+    employee_data = pd.DataFrame(employee_data_list)
     
     categories = ['勤務時間', '休日休暇', '有給休暇', '勤務体系', '昇給昇格', '人間関係', 
                  '働く環境', '成長実感', '将来キャリア', '福利厚生', '評価制度']
