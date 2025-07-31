@@ -801,7 +801,7 @@ def show_kpi_overview(data, kpis):
     df = data['employee_data']
     
     # 情報ボックス
-    st.info(f"📅 **データ最終更新:** {datetime.now().strftime('%Y/%m/%d %H:%M')} | 👥 **回答者数:** {len(df)}名 | 📋 **調査項目:** {len(df.columns)}項目")
+    st.info(f"📅 **データ最終更新:** {datetime.now().strftime('%Y/%m/%d %H:%M')} | 📋 **調査項目:** {len(df.columns)}項目")
     
     if not kpis:
         st.error("KPIデータが利用できません")
@@ -821,7 +821,7 @@ def show_kpi_overview(data, kpis):
             delta=nps_delta,
             delta_color=nps_color
         )
-        st.caption("会社の情報：自分の望む様な人を学び求める際に、この会社への転職・就職をその人に薦める程のメリットを感じることができますか？")
+        st.caption("会社の情報：自分の望む様な人を招き求める際に、この会社への転職・就職をその人に薦める程のメリットを感じることができますか？")
     
     with col2:
         satisfaction = kpis['avg_satisfaction']
@@ -896,12 +896,16 @@ def show_kpi_overview(data, kpis):
         st.caption("休暇利用状況")
     
     with col4:
+        avg_overtime = kpis['avg_overtime']
+        ot_delta = "⚠️ 多い" if avg_overtime > 40 else "✅ 適正" if avg_overtime <= 20 else "📊 普通"
+        ot_color = "inverse" if avg_overtime > 40 else "normal" if avg_overtime <= 20 else "off"
         st.metric(
-            label="👥 回答者数",
-            value=f"{kpis['total_employees']}名",
-            delta="全回答者"
+            label="⏰ 平均残業時間",
+            value=f"{avg_overtime:.1f}時間/月",
+            delta=ot_delta,
+            delta_color=ot_color
         )
-        st.caption("調査参加者")
+        st.caption("月間残業時間")
 
 def show_satisfaction_analysis(data, kpis):
     """満足度分析を表示"""
@@ -2125,23 +2129,6 @@ def main():
         
         # レポート情報
         st.markdown("### 📋 レポート情報")
-        
-        # データ読み込み
-        data = load_employee_data()
-        if data and 'employee_data' in data:
-            total_responses = len(data['employee_data'])
-            
-            # フィルター適用後のデータ数も表示
-            filtered_data = apply_filters(data, filters)
-            filtered_responses = len(filtered_data['employee_data'])
-            
-            st.write(f"📊 **総回答数:** {total_responses}名")
-            if filtered_responses != total_responses:
-                st.write(f"🔍 **フィルター後:** {filtered_responses}名")
-            
-            if 'department' in data['employee_data'].columns:
-                unique_depts = data['employee_data']['department'].nunique()
-                st.write(f"🏢 **部署数:** {unique_depts}部署")
         
         st.write(f"🕐 **最終更新:** {datetime.now().strftime('%Y/%m/%d')}")
         
