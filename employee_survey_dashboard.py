@@ -1425,223 +1425,256 @@ def show_text_mining_analysis():
             st.info(f"{comment_type}のデータがありません。")
 
 def show_time_series_analysis():
-    """時系列分析を表示"""
-    st.header("📈 時系列分析")
+    """KPI時系列分析を表示"""
+    st.header("📈 KPI時系列分析")
     
-    # タイムスタンプデータの読み込み
-    with st.spinner("🕐 タイムスタンプデータを読み込み中..."):
-        timestamp_data = load_timestamp_data()
-    
-    if timestamp_data is None or len(timestamp_data) == 0:
-        st.warning("タイムスタンプデータが読み込めませんでした。回答データが不足している可能性があります。")
+    # データの読み込み
+    with st.spinner("📊 調査データを読み込み中..."):
+        data = load_employee_data()
         
-        # ダミーの時系列データを生成してデモンストレーション
-        st.info("📊 デモンストレーション用のサンプル時系列データを表示します")
-        timestamp_data = create_dummy_timestamp_data()
+    if not data or 'employee_data' not in data:
+        st.error("調査データが読み込めませんでした。")
+        return
     
-    # タブを作成
-    tabs = st.tabs(["📊 回答数推移", "🕐 回答時間帯分析", "⏱️ 所要時間分析", "📅 曜日別分析"])
+    # 現在は1回分のデータしかないため、デモ用の時系列データを生成
+    st.info("📊 現在は1回分の調査データのみのため、デモンストレーション用の時系列データを表示します")
     
-    with tabs[0]:  # 回答数推移
-        st.subheader("📈 回答数の推移")
+    # デモ用の時系列KPIデータを生成
+    monthly_kpi_data = create_dummy_monthly_kpi_data()
+    
+    # メイン指標の時系列グラフ
+    st.subheader("📈 主要KPI指標の月別推移")
+    
+    # 4つの主要指標を2x2のレイアウトで表示
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # eNPS推移
+        fig_nps = px.line(
+            monthly_kpi_data,
+            x='年月',
+            y='eNPS',
+            title='eNPS (Employee Net Promoter Score) 推移',
+            markers=True,
+            color_discrete_sequence=['#FF6B6B']
+        )
+        fig_nps.update_layout(
+            height=300,
+            yaxis_title='eNPS (%)',
+            xaxis_title='年月'
+        )
+        fig_nps.add_hline(y=0, line_dash="dash", line_color="gray", annotation_text="基準線 (0)")
+        st.plotly_chart(fig_nps, use_container_width=True)
         
-        if len(timestamp_data) > 0:
-            # 日別回答数を集計
-            daily_counts = timestamp_data.groupby('date').size().reset_index(name='回答数')
-            daily_counts['date'] = pd.to_datetime(daily_counts['date'])
-            
-            # 折れ線グラフ
-            fig = px.line(
-                daily_counts,
-                x='date',
-                y='回答数',
-                title='日別回答数推移',
-                markers=True
-            )
-            fig.update_layout(
-                xaxis_title='日付',
-                yaxis_title='回答数',
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # 統計サマリー
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("総回答数", len(timestamp_data))
-            with col2:
-                avg_daily = daily_counts['回答数'].mean()
-                st.metric("1日平均回答数", f"{avg_daily:.1f}")
-            with col3:
-                peak_day = daily_counts.loc[daily_counts['回答数'].idxmax(), 'date'].strftime('%Y-%m-%d')
-                peak_count = daily_counts['回答数'].max()
-                st.metric("最大回答日", f"{peak_count}件 ({peak_day})")
-        else:
-            st.info("表示するデータがありません。")
+        # 活躍貢献度推移
+        fig_contribution = px.line(
+            monthly_kpi_data,
+            x='年月',
+            y='活躍貢献度',
+            title='活躍貢献度 推移',
+            markers=True,
+            color_discrete_sequence=['#4ECDC4']
+        )
+        fig_contribution.update_layout(
+            height=300,
+            yaxis_title='活躍貢献度 (1-5点)',
+            xaxis_title='年月',
+            yaxis=dict(range=[1, 5])
+        )
+        st.plotly_chart(fig_contribution, use_container_width=True)
     
-    with tabs[1]:  # 回答時間帯分析
-        st.subheader("🕐 時間帯別回答分析")
+    with col2:
+        # 総合満足度推移
+        fig_satisfaction = px.line(
+            monthly_kpi_data,
+            x='年月',
+            y='総合満足度',
+            title='総合満足度 推移',
+            markers=True,
+            color_discrete_sequence=['#45B7D1']
+        )
+        fig_satisfaction.update_layout(
+            height=300,
+            yaxis_title='総合満足度 (1-5点)',
+            xaxis_title='年月',
+            yaxis=dict(range=[1, 5])
+        )
+        st.plotly_chart(fig_satisfaction, use_container_width=True)
         
-        if len(timestamp_data) > 0:
-            # 時間帯別回答数を集計
-            hourly_counts = timestamp_data.groupby('hour').size().reset_index(name='回答数')
-            
-            # 棒グラフ
-            fig = px.bar(
-                hourly_counts,
-                x='hour',
-                y='回答数',
-                title='時間帯別回答数分布',
-                color='回答数',
-                color_continuous_scale='viridis'
-            )
-            fig.update_layout(
-                xaxis_title='時間（24時間表記）',
-                yaxis_title='回答数',
-                height=400,
-                xaxis=dict(tickmode='linear', dtick=1)
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # ピーク時間帯の特定
-            peak_hour = hourly_counts.loc[hourly_counts['回答数'].idxmax(), 'hour']
-            peak_count = hourly_counts['回答数'].max()
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("ピーク時間帯", f"{peak_hour:02d}:00-{peak_hour+1:02d}:00")
-            with col2:
-                st.metric("ピーク時間帯回答数", f"{peak_count}件")
-            
-            # 時間帯別の詳細データ
-            st.subheader("📋 時間帯別詳細")
-            hourly_detailed = timestamp_data.groupby('hour').agg({
-                'duration_minutes': 'mean',
-                'response_id': 'count'
-            }).round(1)
-            hourly_detailed.columns = ['平均所要時間(分)', '回答数']
-            st.dataframe(hourly_detailed, use_container_width=True)
-        else:
-            st.info("表示するデータがありません。")
+        # 勤続意向推移
+        fig_retention = px.line(
+            monthly_kpi_data,
+            x='年月',
+            y='勤続意向',
+            title='勤続意向 推移',
+            markers=True,
+            color_discrete_sequence=['#96CEB4']
+        )
+        fig_retention.update_layout(
+            height=300,
+            yaxis_title='勤続意向 (1-5点)',
+            xaxis_title='年月',
+            yaxis=dict(range=[1, 5])
+        )
+        st.plotly_chart(fig_retention, use_container_width=True)
     
-    with tabs[2]:  # 所要時間分析
-        st.subheader("⏱️ 回答所要時間分析")
-        
-        if len(timestamp_data) > 0:
-            # ヒストグラム
-            fig = px.histogram(
-                timestamp_data,
-                x='duration_minutes',
-                nbins=20,
-                title='回答所要時間分布',
-                labels={'duration_minutes': '所要時間（分）', 'count': '回答数'}
-            )
-            fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # 統計指標
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                avg_duration = timestamp_data['duration_minutes'].mean()
-                st.metric("平均所要時間", f"{avg_duration:.1f}分")
-            with col2:
-                median_duration = timestamp_data['duration_minutes'].median()
-                st.metric("中央値", f"{median_duration:.1f}分")
-            with col3:
-                min_duration = timestamp_data['duration_minutes'].min()
-                st.metric("最短時間", f"{min_duration:.1f}分")
-            with col4:
-                max_duration = timestamp_data['duration_minutes'].max()
-                st.metric("最長時間", f"{max_duration:.1f}分")
-            
-            # 所要時間の箱ひげ図
-            fig_box = px.box(
-                timestamp_data,
-                y='duration_minutes',
-                title='回答所要時間の分布（箱ひげ図）'
-            )
-            fig_box.update_layout(height=400, yaxis_title='所要時間（分）')
-            st.plotly_chart(fig_box, use_container_width=True)
-        else:
-            st.info("表示するデータがありません。")
+    # 全指標を1つのグラフで比較
+    st.subheader("📊 主要指標比較 (正規化)")
     
-    with tabs[3]:  # 曜日別分析
-        st.subheader("📅 曜日別回答分析")
-        
-        if len(timestamp_data) > 0:
-            # 曜日別回答数を集計
-            weekday_counts = timestamp_data.groupby(['weekday', 'weekday_name']).size().reset_index(name='回答数')
-            weekday_counts = weekday_counts.sort_values('weekday')
-            
-            # 棒グラフ
-            fig = px.bar(
-                weekday_counts,
-                x='weekday_name',
-                y='回答数',
-                title='曜日別回答数分布',
-                color='回答数',
-                color_continuous_scale='plasma'
-            )
-            fig.update_layout(
-                xaxis_title='曜日',
-                yaxis_title='回答数',
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # 曜日別の詳細統計
-            weekday_detailed = timestamp_data.groupby(['weekday', 'weekday_name']).agg({
-                'duration_minutes': ['mean', 'count'],
-                'hour': 'mean'
-            }).round(1)
-            weekday_detailed.columns = ['平均所要時間(分)', '回答数', '平均回答時間(時)']
-            weekday_detailed = weekday_detailed.reset_index()[['weekday_name', '平均所要時間(分)', '回答数', '平均回答時間(時)']]
-            weekday_detailed.columns = ['曜日', '平均所要時間(分)', '回答数', '平均回答時間(時)']
-            
-            st.subheader("📊 曜日別詳細統計")
-            st.dataframe(weekday_detailed, use_container_width=True, hide_index=True)
-        else:
-            st.info("表示するデータがありません。")
+    # 正規化データを作成（0-1の範囲に正規化）
+    normalized_data = monthly_kpi_data.copy()
+    normalized_data['eNPS_正規化'] = (normalized_data['eNPS'] + 100) / 200  # -100~100 → 0~1
+    normalized_data['総合満足度_正規化'] = (normalized_data['総合満足度'] - 1) / 4  # 1~5 → 0~1
+    normalized_data['活躍貢献度_正規化'] = (normalized_data['活躍貢献度'] - 1) / 4  # 1~5 → 0~1
+    normalized_data['勤続意向_正規化'] = (normalized_data['勤続意向'] - 1) / 4  # 1~5 → 0~1
+    
+    # 比較グラフ
+    fig_compare = go.Figure()
+    
+    fig_compare.add_trace(go.Scatter(
+        x=normalized_data['年月'],
+        y=normalized_data['eNPS_正規化'],
+        mode='lines+markers',
+        name='eNPS',
+        line=dict(color='#FF6B6B')
+    ))
+    
+    fig_compare.add_trace(go.Scatter(
+        x=normalized_data['年月'],
+        y=normalized_data['総合満足度_正規化'],
+        mode='lines+markers',
+        name='総合満足度',
+        line=dict(color='#45B7D1')
+    ))
+    
+    fig_compare.add_trace(go.Scatter(
+        x=normalized_data['年月'],
+        y=normalized_data['活躍貢献度_正規化'],
+        mode='lines+markers',
+        name='活躍貢献度',
+        line=dict(color='#4ECDC4')
+    ))
+    
+    fig_compare.add_trace(go.Scatter(
+        x=normalized_data['年月'],
+        y=normalized_data['勤続意向_正規化'],
+        mode='lines+markers',
+        name='勤続意向',
+        line=dict(color='#96CEB4')
+    ))
+    
+    fig_compare.update_layout(
+        title='主要KPI指標の推移比較 (正規化済み)',
+        xaxis_title='年月',
+        yaxis_title='正規化値 (0-1)',
+        height=400,
+        hovermode='x unified'
+    )
+    
+    st.plotly_chart(fig_compare, use_container_width=True)
+    
+    # 月別詳細データテーブル
+    st.subheader("📋 月別KPI詳細データ")
+    
+    # 表示用にデータを整形
+    display_data = monthly_kpi_data.copy()
+    display_data['eNPS'] = display_data['eNPS'].round(1)
+    display_data['総合満足度'] = display_data['総合満足度'].round(2)
+    display_data['活躍貢献度'] = display_data['活躍貢献度'].round(2)
+    display_data['勤続意向'] = display_data['勤続意向'].round(2)
+    display_data['回答者数'] = display_data['回答者数'].astype(int)
+    
+    st.dataframe(display_data, use_container_width=True, hide_index=True)
+    
+    # トレンド分析
+    st.subheader("📈 トレンド分析")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        nps_trend = monthly_kpi_data['eNPS'].iloc[-1] - monthly_kpi_data['eNPS'].iloc[0]
+        st.metric(
+            "eNPS変化", 
+            f"{monthly_kpi_data['eNPS'].iloc[-1]:.1f}%",
+            delta=f"{nps_trend:+.1f}%"
+        )
+    
+    with col2:
+        satisfaction_trend = monthly_kpi_data['総合満足度'].iloc[-1] - monthly_kpi_data['総合満足度'].iloc[0]
+        st.metric(
+            "総合満足度変化",
+            f"{monthly_kpi_data['総合満足度'].iloc[-1]:.2f}点",
+            delta=f"{satisfaction_trend:+.2f}点"
+        )
+    
+    with col3:
+        contribution_trend = monthly_kpi_data['活躍貢献度'].iloc[-1] - monthly_kpi_data['活躍貢献度'].iloc[0]
+        st.metric(
+            "活躍貢献度変化",
+            f"{monthly_kpi_data['活躍貢献度'].iloc[-1]:.2f}点",
+            delta=f"{contribution_trend:+.2f}点"
+        )
+    
+    with col4:
+        retention_trend = monthly_kpi_data['勤続意向'].iloc[-1] - monthly_kpi_data['勤続意向'].iloc[0]
+        st.metric(
+            "勤続意向変化",
+            f"{monthly_kpi_data['勤続意向'].iloc[-1]:.2f}点",
+            delta=f"{retention_trend:+.2f}点"
+        )
 
-def create_dummy_timestamp_data():
-    """デモ用のダミータイムスタンプデータを生成"""
+def create_dummy_monthly_kpi_data():
+    """デモ用の月別KPIデータを生成"""
     np.random.seed(42)
     
-    # 過去30日間のランダムな日時を生成
-    base_date = datetime.now() - timedelta(days=30)
-    dummy_data = []
+    # 過去12ヶ月のデータを生成
+    months = []
+    base_date = datetime.now().replace(day=1) - timedelta(days=365)
     
-    for i in range(50):  # 50件のサンプルデータ
-        # ランダムな日時を生成（平日の9-18時により多く分布）
-        days_offset = np.random.randint(0, 30)
-        if np.random.random() < 0.7:  # 70%の確率で平日の業務時間内
-            hour = np.random.randint(9, 18)
-        else:  # 30%の確率でその他の時間
-            hour = np.random.randint(0, 24)
+    for i in range(12):
+        current_date = base_date + timedelta(days=30*i)
+        months.append(current_date.strftime('%Y-%m'))
+    
+    # 基準値からトレンドのあるデータを生成
+    base_enps = -10  # 基準eNPS
+    base_satisfaction = 3.2  # 基準満足度
+    base_contribution = 3.5  # 基準活躍貢献度
+    base_retention = 3.1  # 基準勤続意向
+    
+    monthly_data = []
+    
+    for i, month in enumerate(months):
+        # 季節性とトレンドを含んだデータ生成
+        seasonal_factor = 0.1 * np.sin(2 * np.pi * i / 12)  # 季節変動
+        trend_factor = i * 0.02  # 上昇トレンド
         
-        start_time = base_date + timedelta(
-            days=days_offset,
-            hours=hour,
-            minutes=np.random.randint(0, 60),
-            seconds=np.random.randint(0, 60)
-        )
+        # ランダムノイズ
+        noise_enps = np.random.normal(0, 5)
+        noise_satisfaction = np.random.normal(0, 0.1)
+        noise_contribution = np.random.normal(0, 0.1)
+        noise_retention = np.random.normal(0, 0.1)
         
-        # 所要時間は5-30分の範囲でランダム
-        duration = np.random.uniform(5, 30)
-        end_time = start_time + timedelta(minutes=duration)
+        enps = base_enps + trend_factor * 50 + seasonal_factor * 10 + noise_enps
+        satisfaction = base_satisfaction + trend_factor * 2 + seasonal_factor * 0.2 + noise_satisfaction
+        contribution = base_contribution + trend_factor * 1.5 + seasonal_factor * 0.15 + noise_contribution
+        retention = base_retention + trend_factor * 1.8 + seasonal_factor * 0.18 + noise_retention
         
-        dummy_data.append({
-            'response_id': i + 1,
-            'start_time': start_time,
-            'end_time': end_time,
-            'duration_minutes': duration,
-            'date': start_time.date(),
-            'hour': start_time.hour,
-            'weekday': start_time.weekday(),
-            'weekday_name': ['月', '火', '水', '木', '金', '土', '日'][start_time.weekday()]
+        # 値の範囲制限
+        enps = max(-100, min(100, enps))
+        satisfaction = max(1, min(5, satisfaction))
+        contribution = max(1, min(5, contribution))
+        retention = max(1, min(5, retention))
+        
+        monthly_data.append({
+            '年月': month,
+            'eNPS': enps,
+            '総合満足度': satisfaction,
+            '活躍貢献度': contribution,
+            '勤続意向': retention,
+            '回答者数': np.random.randint(45, 55)  # 回答者数も変動
         })
     
-    return pd.DataFrame(dummy_data)
+    return pd.DataFrame(monthly_data)
 
 def show_department_analysis(data, kpis):
     """部署別分析を表示"""
