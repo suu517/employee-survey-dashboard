@@ -657,6 +657,14 @@ def create_dummy_data():
         'overall_satisfaction': np.random.choice(range(1, 6), n_employees),
         'long_term_intention': np.random.choice(range(1, 6), n_employees),
         'contribution_score': np.random.choice(range(1, 6), n_employees),
+        # フィルター用追加項目
+        'group': np.random.choice(['Aグループ', 'Bグループ', 'Cグループ'], n_employees),
+        'workplace': np.random.choice(['東京本社', '大阪支社', '名古屋支社', '福岡支社'], n_employees),
+        'employee_number': np.random.choice(['01-10', '11-20', '21-30', '31-40', '41-50'], n_employees),
+        'business_type': np.random.choice(['営業系', '技術系', '管理系', 'サポート系'], n_employees),
+        'region': np.random.choice(['関東', '関西', '中部', '九州'], n_employees),
+        'job_category': np.random.choice(['正社員', '契約社員', 'パート'], n_employees),
+        'age_group': np.random.choice(['20代', '30代', '40代', '50代以上'], n_employees),
     })
     
     categories = ['勤務時間', '休日休暇', '有給休暇', '勤務体系', '昇給昇格', '人間関係', 
@@ -740,7 +748,7 @@ def show_kpi_overview(data, kpis):
             delta=nps_delta,
             delta_color=nps_color
         )
-        st.caption("従業員推奨度指標")
+        st.caption("会社の情報：自分の望む様な人を学び求める際に、この会社への転職・就職をその人に薦める程のメリットを感じることができますか？")
     
     with col2:
         satisfaction = kpis['avg_satisfaction']
@@ -1870,6 +1878,41 @@ def show_strengths_weaknesses_analysis(data, kpis):
         bottom_score = bottom5_weaknesses[0][1]
         st.metric("最低満足度", f"{bottom_score:.2f}点", delta=f"{bottom_score - avg_satisfaction:.2f}")
 
+def apply_filters(data, filters):
+    """フィルターを適用してデータを絞り込む"""
+    if not data or 'employee_data' not in data:
+        return data
+    
+    df = data['employee_data'].copy()
+    
+    # 各フィルターを適用
+    if filters['group'] and 'group' in df.columns:
+        df = df[df['group'].isin(filters['group'])]
+    
+    if filters['workplace'] and 'workplace' in df.columns:
+        df = df[df['workplace'].isin(filters['workplace'])]
+    
+    if filters['employee_number'] and 'employee_number' in df.columns:
+        df = df[df['employee_number'].isin(filters['employee_number'])]
+    
+    if filters['business_type'] and 'business_type' in df.columns:
+        df = df[df['business_type'].isin(filters['business_type'])]
+    
+    if filters['region'] and 'region' in df.columns:
+        df = df[df['region'].isin(filters['region'])]
+    
+    if filters['job_category'] and 'job_category' in df.columns:
+        df = df[df['job_category'].isin(filters['job_category'])]
+    
+    if filters['age_group'] and 'age_group' in df.columns:
+        df = df[df['age_group'].isin(filters['age_group'])]
+    
+    # フィルター後のデータを返す
+    filtered_data = data.copy()
+    filtered_data['employee_data'] = df
+    
+    return filtered_data
+
 def main():
     # サイドバー
     with st.sidebar:
@@ -1893,6 +1936,111 @@ def main():
         
         st.divider()
         
+        # フィルター設定
+        st.markdown("### 🔍 データフィルター")
+        
+        # データを読み込んでフィルター選択肢を作成
+        temp_data = load_employee_data()
+        
+        filters = {}
+        
+        if temp_data and 'employee_data' in temp_data:
+            df = temp_data['employee_data']
+            
+            # グループフィルター
+            if 'group' in df.columns:
+                filters['group'] = st.multiselect(
+                    "グループ",
+                    options=sorted(df['group'].dropna().unique()),
+                    default=None,
+                    key="filter_group"
+                )
+            else:
+                filters['group'] = []
+            
+            # 勤務地フィルター
+            if 'workplace' in df.columns:
+                filters['workplace'] = st.multiselect(
+                    "勤務地",
+                    options=sorted(df['workplace'].dropna().unique()),
+                    default=None,
+                    key="filter_workplace"
+                )
+            else:
+                filters['workplace'] = []
+            
+            # 人数番号フィルター
+            if 'employee_number' in df.columns:
+                filters['employee_number'] = st.multiselect(
+                    "人数番号",
+                    options=sorted(df['employee_number'].dropna().unique()),
+                    default=None,
+                    key="filter_employee_number"
+                )
+            else:
+                filters['employee_number'] = []
+            
+            # 勤務業務等フィルター
+            if 'business_type' in df.columns:
+                filters['business_type'] = st.multiselect(
+                    "勤務業務等",
+                    options=sorted(df['business_type'].dropna().unique()),
+                    default=None,
+                    key="filter_business_type"
+                )
+            else:
+                filters['business_type'] = []
+            
+            # 地域フィルター
+            if 'region' in df.columns:
+                filters['region'] = st.multiselect(
+                    "地域",
+                    options=sorted(df['region'].dropna().unique()),
+                    default=None,
+                    key="filter_region"
+                )
+            else:
+                filters['region'] = []
+            
+            # 職務フィルター
+            if 'job_category' in df.columns:
+                filters['job_category'] = st.multiselect(
+                    "職務",
+                    options=sorted(df['job_category'].dropna().unique()),
+                    default=None,
+                    key="filter_job_category"
+                )
+            else:
+                filters['job_category'] = []
+            
+            # 年齢等フィルター
+            if 'age_group' in df.columns:
+                filters['age_group'] = st.multiselect(
+                    "年齢等",
+                    options=sorted(df['age_group'].dropna().unique()),
+                    default=None,
+                    key="filter_age_group"
+                )
+            else:
+                filters['age_group'] = []
+        else:
+            filters = {
+                'group': [],
+                'workplace': [],
+                'employee_number': [],
+                'business_type': [],
+                'region': [],
+                'job_category': [],
+                'age_group': []
+            }
+        
+        # フィルターリセットボタン
+        if st.button("🔄 フィルターリセット", use_container_width=True):
+            st.cache_data.clear()
+            st.rerun()
+        
+        st.divider()
+        
         # データ更新ボタン
         if st.button("🔄 データ更新", use_container_width=True):
             st.cache_data.clear()
@@ -1901,6 +2049,28 @@ def main():
         st.info("💡 Excelファイル更新後は「データ更新」ボタンを押してください")
         
         st.divider()
+        
+        # レポート情報
+        st.markdown("### 📋 レポート情報")
+        
+        # データ読み込み
+        data = load_employee_data()
+        if data and 'employee_data' in data:
+            total_responses = len(data['employee_data'])
+            
+            # フィルター適用後のデータ数も表示
+            filtered_data = apply_filters(data, filters)
+            filtered_responses = len(filtered_data['employee_data'])
+            
+            st.write(f"📊 **総回答数:** {total_responses}名")
+            if filtered_responses != total_responses:
+                st.write(f"🔍 **フィルター後:** {filtered_responses}名")
+            
+            if 'department' in data['employee_data'].columns:
+                unique_depts = data['employee_data']['department'].nunique()
+                st.write(f"🏢 **部署数:** {unique_depts}部署")
+        
+        st.write(f"🕐 **最終更新:** {datetime.now().strftime('%Y/%m/%d')}")
         
         # データエクスポート
         st.subheader("📥 データエクスポート")
@@ -1914,15 +2084,17 @@ def main():
     # データ読み込み
     with st.spinner("📊 データを読み込み中..."):
         data = load_employee_data()
-        kpis = calculate_kpis(data)
+        # フィルターを適用
+        filtered_data = apply_filters(data, filters)
+        kpis = calculate_kpis(filtered_data)
     
     # ページ表示
     if page == "📊 KPI概要":
-        show_kpi_overview(data, kpis)
+        show_kpi_overview(filtered_data, kpis)
     elif page == "📈 満足度分析":
-        show_satisfaction_analysis(data, kpis)
+        show_satisfaction_analysis(filtered_data, kpis)
     elif page == "🏢 詳細分析":
-        show_department_analysis(data, kpis)
+        show_department_analysis(filtered_data, kpis)
     elif page == "📝 テキストマイニング":
         show_text_mining_analysis()
     elif page == "⏰ 時系列分析":
