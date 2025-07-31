@@ -762,19 +762,19 @@ def show_satisfaction_analysis(data, kpis):
                 x, y = row['満足度'], row['期待度']
                 gap = row['ギャップ']
                 
-                # 象限によって色を決定
+                # 象限によって色を決定（すべて円形で統一）
                 if x >= mid_x and y >= mid_y:
                     colors.append('#48BB78')  # 緑 - 理想的
                     symbols.append('circle')
                 elif x < mid_x and y >= mid_y:
                     colors.append('#F56565')  # 赤 - 要改善
-                    symbols.append('triangle-up')
+                    symbols.append('circle')
                 elif x >= mid_x and y < mid_y:
                     colors.append('#9F7AEA')  # 紫 - 満足超過
-                    symbols.append('diamond')
+                    symbols.append('circle')
                 else:
                     colors.append('#ED8936')  # オレンジ - 機会領域
-                    symbols.append('square')
+                    symbols.append('circle')
                 
                 sizes.append(max(12, abs(gap) * 20 + 15))
                 text_positions.append(get_optimal_text_position(x, y, i, len(gap_df)))
@@ -810,16 +810,16 @@ def show_satisfaction_analysis(data, kpis):
                 x, y = row['満足度'], row['期待度']
                 category = row['カテゴリ']
                 
-                # テキストオフセットを計算
+                # テキストオフセットを計算（象限ラベルとの重なりを避ける）
                 offset_map = {
-                    "top center": (0, 0.15),
-                    "bottom center": (0, -0.15),
-                    "middle left": (-0.25, 0),
-                    "middle right": (0.25, 0),
-                    "top left": (-0.2, 0.15),
-                    "top right": (0.2, 0.15),
-                    "bottom left": (-0.2, -0.15),
-                    "bottom right": (0.2, -0.15)
+                    "top center": (0, 0.2),
+                    "bottom center": (0, -0.2),
+                    "middle left": (-0.3, 0),
+                    "middle right": (0.3, 0),
+                    "top left": (-0.25, 0.2),
+                    "top right": (0.25, 0.2),
+                    "bottom left": (-0.25, -0.2),
+                    "bottom right": (0.25, -0.2)
                 }
                 
                 text_pos = text_positions[i]
@@ -868,16 +868,24 @@ def show_satisfaction_analysis(data, kpis):
                 paper_bgcolor='white'
             )
             
-            # 象限ラベルを追加
+            # 象限ラベルを追加（重なり回避のため外側に配置）
             annotations = [
-                dict(x=4.2, y=4.2, text="<b>🎯 理想的</b><br>(高満足・高期待)", 
-                     showarrow=False, font=dict(size=11, color='#22543d'), bgcolor='rgba(72, 187, 120, 0.2)', bordercolor='#48BB78'),
-                dict(x=1.8, y=4.2, text="<b>🚨 要改善</b><br>(低満足・高期待)", 
-                     showarrow=False, font=dict(size=11, color='#742a2a'), bgcolor='rgba(245, 101, 101, 0.2)', bordercolor='#F56565'),
-                dict(x=4.2, y=1.8, text="<b>💎 満足超過</b><br>(高満足・低期待)", 
-                     showarrow=False, font=dict(size=11, color='#553c9a'), bgcolor='rgba(159, 122, 234, 0.2)', bordercolor='#9F7AEA'),
-                dict(x=1.8, y=1.8, text="<b>🔄 機会領域</b><br>(低満足・低期待)", 
-                     showarrow=False, font=dict(size=11, color='#c05621'), bgcolor='rgba(237, 137, 54, 0.2)', bordercolor='#ED8936')
+                dict(x=4.8, y=4.8, text="<b>🎯 理想的</b><br>(高満足・高期待)", 
+                     showarrow=False, font=dict(size=10, color='#22543d'), 
+                     bgcolor='rgba(72, 187, 120, 0.2)', bordercolor='#48BB78',
+                     xanchor='center', yanchor='middle'),
+                dict(x=1.2, y=4.8, text="<b>🚨 要改善</b><br>(低満足・高期待)", 
+                     showarrow=False, font=dict(size=10, color='#742a2a'), 
+                     bgcolor='rgba(245, 101, 101, 0.2)', bordercolor='#F56565',
+                     xanchor='center', yanchor='middle'),
+                dict(x=4.8, y=1.2, text="<b>💎 満足超過</b><br>(高満足・低期待)", 
+                     showarrow=False, font=dict(size=10, color='#553c9a'), 
+                     bgcolor='rgba(159, 122, 234, 0.2)', bordercolor='#9F7AEA',
+                     xanchor='center', yanchor='middle'),
+                dict(x=1.2, y=1.2, text="<b>🔄 機会領域</b><br>(低満足・低期待)", 
+                     showarrow=False, font=dict(size=10, color='#c05621'), 
+                     bgcolor='rgba(237, 137, 54, 0.2)', bordercolor='#ED8936',
+                     xanchor='center', yanchor='middle')
             ]
             
             for ann in annotations:
