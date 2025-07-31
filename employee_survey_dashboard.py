@@ -11,6 +11,13 @@ import plotly.graph_objects as go
 import numpy as np
 from datetime import datetime
 import os
+import re
+from collections import Counter
+from janome.tokenizer import Tokenizer
+import networkx as nx
+from sklearn.feature_extraction.text import TfidfVectorizer
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
 
 # ページ設定
 st.set_page_config(
@@ -221,6 +228,156 @@ def load_employee_data():
     except Exception as e:
         st.error(f"データ読み込みエラー: {e}")
         return create_dummy_data()
+
+def load_comment_data():
+    """コメントデータを読み込み・処理する"""
+    try:
+        excel_path = './data.xlsx'
+        if not os.path.exists(excel_path):
+            return None
+            
+        # Responsesシートの生データを読み込み
+        df_raw = pd.read_excel(excel_path, sheet_name='Responses', header=None)
+        
+        if len(df_raw) < 3:
+            return None
+            
+        # コメントカラムのインデックス（0ベース）
+        comment_columns = {
+            '期待コメント': 60,   # 最も期待が高い項目について
+            '満足コメント': 103,  # 最も満足度が高い項目について  
+            '不満コメント': 104   # 満足度が低い項目について
+        }
+        
+        comments = {}
+        for comment_type, col_idx in comment_columns.items():
+            if col_idx < len(df_raw.columns):
+                # データ行（2行目以降）からコメントを取得
+                comment_data = []
+                for row_idx in range(2, len(df_raw)):
+                    comment = df_raw.iloc[row_idx, col_idx]
+                    if pd.notna(comment) and str(comment).strip():
+                        comment_data.append(str(comment).strip())
+                
+                comments[comment_type] = comment_data
+        
+        return comments
+        
+    except Exception as e:
+        st.error(f"コメントデータ読み込みエラー: {e}")
+        return None
+
+def preprocess_japanese_text(text):
+    """日本語テキストの前処理"""
+    if not text or pd.isna(text):
+        return ""
+    
+    # 文字列に変換
+    text = str(text)
+    
+    # 不要な文字を削除
+    text = re.sub(r'[^\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\u3400-\u4DBF\uFF00-\uFFEFa-zA-Z0-9\s]', '', text)
+    
+    # 余分な空白を削除
+    text = re.sub(r'\s+', ' ', text).strip()
+    
+    return text
+
+def extract_keywords_janome(texts, min_length=2, max_features=100):
+    """Janomeを使って日本語テキストからキーワードを抽出"""
+    if not texts:
+        return []
+    
+    # Janomeトークナイザー
+    tokenizer = Tokenizer()
+    
+    # ストップワード（除外する語）
+    stop_words = {
+        'こと', 'もの', 'ため', 'よう', 'など', 'について', 'において', 'として', 
+        'による', 'により', 'に対して', 'それ', 'これ', 'その', 'この', 'ある',
+        'いる', 'する', 'なる', 'れる', 'られる', 'です', 'である', 'だ', 'で',
+        'は', 'が', 'を', 'に', 'の', 'と', 'や', 'か', 'も', 'から', 'まで',
+        '1', '2', '3', '4', '5', 'どちら', '言える', '満足', '期待', '項目'
+    }
+    
+    all_keywords = []
+    
+    for text in texts:
+        if not text:
+            continue
+            
+        # 前処理
+        cleaned_text = preprocess_japanese_text(text)
+        
+        # 形態素解析
+        tokens = tokenizer.tokenize(cleaned_text)
+        
+        for token in tokens:
+            # 名詞のみ抽出
+            if token.part_of_speech.split(',')[0] in ['名詞']:
+                word = token.surface
+                
+                # 条件に合うものだけ抽出
+                if (len(word) >= min_length and 
+                    word not in stop_words and
+                    not word.isdigit() and
+                    not re.match(r'^[ぁ-ん]+$', word)):  # ひらがなのみの語を除外
+                    all_keywords.append(word)
+    
+    # 出現頻度でソート
+    keyword_counts = Counter(all_keywords)
+    return keyword_counts.most_common(max_features)
+
+def build_cooccurrence_network(texts, min_cooccurrence=1):
+    """共起ネットワークを構築"""
+    if not texts:
+        return None, None
+    
+    tokenizer = Tokenizer()
+    
+    # 各テキストから名詞を抽出
+    doc_keywords = []
+    for text in texts:
+        if not text:
+            continue
+            
+        cleaned_text = preprocess_japanese_text(text)
+        tokens = tokenizer.tokenize(cleaned_text)
+        
+        keywords = []
+        for token in tokens:
+            if token.part_of_speech.split(',')[0] in ['名詞']:
+                word = token.surface
+                if (len(word) >= 2 and 
+                    not word.isdigit() and
+                    word not in {'こと', 'もの', 'ため', 'よう', '項目', '満足', '期待'}):
+                    keywords.append(word)
+        
+        doc_keywords.append(keywords)
+    
+    # 共起関係を計算
+    cooccurrence = {}
+    for keywords in doc_keywords:
+        for i, word1 in enumerate(keywords):
+            for j, word2 in enumerate(keywords):
+                if i != j:
+                    pair = tuple(sorted([word1, word2]))
+                    cooccurrence[pair] = cooccurrence.get(pair, 0) + 1
+    
+    # 最小共起回数でフィルタリング
+    filtered_cooccurrence = {pair: count for pair, count in cooccurrence.items() 
+                           if count >= min_cooccurrence}
+    
+    if not filtered_cooccurrence:
+        return None, None
+    
+    # ネットワークグラフを構築
+    G = nx.Graph()
+    
+    for (word1, word2), weight in filtered_cooccurrence.items():
+        G.add_edge(word1, word2, weight=weight)
+    
+    return G, filtered_cooccurrence
 
 def process_real_survey_data(df):
     """実際の調査データを処理する"""
@@ -943,6 +1100,226 @@ def show_satisfaction_analysis(data, kpis):
         else:
             st.warning("期待度ギャップ分析に必要なデータが不足しています。満足度データまたは期待度データが利用できません。")
 
+def show_text_mining_analysis():
+    """テキストマイニング分析を表示"""
+    st.header("📝 テキストマイニング分析")
+    
+    # コメントデータの読み込み
+    with st.spinner("💬 コメントデータを読み込み中..."):
+        comments = load_comment_data()
+    
+    if not comments:
+        st.error("コメントデータが読み込めませんでした。")
+        return
+    
+    # タブを作成
+    tabs = st.tabs(["📊 キーワード分析", "🕸️ 共起ネットワーク", "☁️ ワードクラウド", "📋 コメント一覧"])
+    
+    with tabs[0]:  # キーワード分析
+        st.subheader("🔍 頻出キーワード分析")
+        
+        comment_type = st.selectbox(
+            "分析するコメント種別を選択:",
+            list(comments.keys()),
+            key="keyword_analysis_type"
+        )
+        
+        if comment_type in comments and comments[comment_type]:
+            keywords = extract_keywords_janome(comments[comment_type], max_features=20)
+            
+            if keywords:
+                # データフレームに変換
+                keyword_df = pd.DataFrame(keywords, columns=['キーワード', '出現回数'])
+                
+                # 棒グラフで表示
+                fig = px.bar(
+                    keyword_df, 
+                    x='出現回数', 
+                    y='キーワード',
+                    orientation='h',
+                    title=f"{comment_type} - 頻出キーワードランキング",
+                    color='出現回数',
+                    color_continuous_scale='viridis'
+                )
+                fig.update_layout(height=600, yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # テーブル表示
+                st.subheader("📋 キーワード詳細")
+                st.dataframe(keyword_df, use_container_width=True, hide_index=True)
+            else:
+                st.info("抽出されたキーワードがありません。")
+        else:
+            st.info(f"{comment_type}のデータがありません。")
+    
+    with tabs[1]:  # 共起ネットワーク
+        st.subheader("🕸️ 共起ネットワーク分析")
+        
+        comment_type = st.selectbox(
+            "分析するコメント種別を選択:",
+            list(comments.keys()),
+            key="network_analysis_type"
+        )
+        
+        min_cooccurrence = st.slider("最小共起回数", 1, 5, 1)
+        
+        if comment_type in comments and comments[comment_type]:
+            G, cooccurrence = build_cooccurrence_network(comments[comment_type], min_cooccurrence)
+            
+            if G and len(G.nodes()) > 0:
+                # NetworkXを使ってネットワーク図を作成
+                pos = nx.spring_layout(G, k=3, iterations=50)
+                
+                # エッジの情報を取得
+                edge_x = []
+                edge_y = []
+                edge_info = []
+                
+                for edge in G.edges():
+                    x0, y0 = pos[edge[0]]
+                    x1, y1 = pos[edge[1]]
+                    edge_x.extend([x0, x1, None])
+                    edge_y.extend([y0, y1, None])
+                    weight = G[edge[0]][edge[1]]['weight']
+                    edge_info.append(f"{edge[0]} - {edge[1]}: {weight}回")
+                
+                # ノードの情報を取得
+                node_x = []
+                node_y = []
+                node_text = []
+                node_size = []
+                
+                for node in G.nodes():
+                    x, y = pos[node]
+                    node_x.append(x)
+                    node_y.append(y)
+                    node_text.append(node)
+                    node_size.append(10 + G.degree(node) * 5)
+                
+                # Plotlyでネットワーク図を作成
+                fig = go.Figure()
+                
+                # エッジを追加
+                fig.add_trace(go.Scatter(
+                    x=edge_x, y=edge_y,
+                    line=dict(width=2, color='#888'),
+                    hoverinfo='none',
+                    mode='lines',
+                    showlegend=False
+                ))
+                
+                # ノードを追加
+                fig.add_trace(go.Scatter(
+                    x=node_x, y=node_y,
+                    mode='markers+text',
+                    hoverinfo='text',
+                    text=node_text,
+                    textposition="middle center",
+                    textfont=dict(size=12, color='white'),
+                    marker=dict(
+                        size=node_size,
+                        color=node_size,
+                        colorscale='viridis',
+                        line=dict(width=2, color='white')
+                    ),
+                    showlegend=False
+                ))
+                
+                fig.update_layout(
+                    title=f"{comment_type} - 共起ネットワーク図",
+                    showlegend=False,
+                    hovermode='closest',
+                    margin=dict(b=20,l=5,r=5,t=40),
+                    annotations=[ dict(
+                        text="ノードサイズ: 接続数、線: 共起関係",
+                        showarrow=False,
+                        xref="paper", yref="paper",
+                        x=0.005, y=-0.002 ,
+                        xanchor="left", yanchor="bottom",
+                        font=dict(color="gray", size=12)
+                    )],
+                    xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                    yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                    height=600
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # 共起関係の詳細
+                st.subheader("📊 共起関係詳細")
+                cooccurrence_df = pd.DataFrame([
+                    {'語1': pair[0], '語2': pair[1], '共起回数': count}
+                    for pair, count in sorted(cooccurrence.items(), key=lambda x: x[1], reverse=True)
+                ])
+                st.dataframe(cooccurrence_df, use_container_width=True, hide_index=True)
+            else:
+                st.info("共起ネットワークを構築できませんでした。最小共起回数を下げてみてください。")
+        else:
+            st.info(f"{comment_type}のデータがありません。")
+    
+    with tabs[2]:  # ワードクラウド
+        st.subheader("☁️ ワードクラウド")
+        
+        comment_type = st.selectbox(
+            "分析するコメント種別を選択:",
+            list(comments.keys()),
+            key="wordcloud_analysis_type"
+        )
+        
+        if comment_type in comments and comments[comment_type]:
+            # キーワードを抽出
+            keywords = extract_keywords_janome(comments[comment_type], max_features=50)
+            
+            if keywords:
+                # ワードクラウド用のデータを準備
+                wordcloud_dict = dict(keywords)
+                
+                try:
+                    # ワードクラウドを生成
+                    wc = WordCloud(
+                        font_path=None,  # システムフォントを使用
+                        width=800, height=400,
+                        background_color='white',
+                        max_words=50,
+                        colormap='viridis'
+                    ).generate_from_frequencies(wordcloud_dict)
+                    
+                    # matplotlib で表示
+                    fig, ax = plt.subplots(figsize=(12, 6))
+                    ax.imshow(wc, interpolation='bilinear')
+                    ax.axis('off')
+                    ax.set_title(f'{comment_type} - ワードクラウド', fontsize=16, pad=20)
+                    
+                    st.pyplot(fig)
+                    
+                except Exception as e:
+                    st.warning(f"ワードクラウドの生成に失敗しました: {e}")
+                    st.info("代わりにキーワードリストを表示します:")
+                    keyword_df = pd.DataFrame(keywords, columns=['キーワード', '出現回数'])
+                    st.dataframe(keyword_df, use_container_width=True, hide_index=True)
+            else:
+                st.info("キーワードが抽出できませんでした。")
+        else:
+            st.info(f"{comment_type}のデータがありません。")
+    
+    with tabs[3]:  # コメント一覧
+        st.subheader("📋 コメント一覧")
+        
+        comment_type = st.selectbox(
+            "表示するコメント種別を選択:",
+            list(comments.keys()),
+            key="comment_list_type"
+        )
+        
+        if comment_type in comments and comments[comment_type]:
+            st.write(f"**{comment_type}** ({len(comments[comment_type])}件)")
+            
+            for i, comment in enumerate(comments[comment_type], 1):
+                with st.expander(f"コメント {i}"):
+                    st.write(comment)
+        else:
+            st.info(f"{comment_type}のデータがありません。")
+
 def show_department_analysis(data, kpis):
     """部署別分析を表示"""
     st.header("🏢 部署別・詳細分析")
@@ -1012,7 +1389,7 @@ def main():
         # ページ選択
         page = st.radio(
             "📋 分析ページ選択",
-            ["📊 KPI概要", "📈 満足度分析", "🏢 詳細分析"],
+            ["📊 KPI概要", "📈 満足度分析", "🏢 詳細分析", "📝 テキストマイニング"],
             index=0
         )
         
@@ -1048,6 +1425,8 @@ def main():
         show_satisfaction_analysis(data, kpis)
     elif page == "🏢 詳細分析":
         show_department_analysis(data, kpis)
+    elif page == "📝 テキストマイニング":
+        show_text_mining_analysis()
 
 if __name__ == "__main__":
     main()
