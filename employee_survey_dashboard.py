@@ -831,10 +831,11 @@ def show_satisfaction_analysis(data, kpis):
             gap_display['優先度'] = gap_display['象限'].map(priority_map)
             
             # 表示用に整理
-            display_df = gap_display[['カテゴリ', '満足度', '期待度', 'ギャップ', '象限', 'ギャップ評価']].sort_values('優先度')
+            display_df = gap_display[['カテゴリ', '満足度', '期待度', 'ギャップ', '象限', 'ギャップ評価', '優先度']].sort_values('優先度')
             display_df = display_df.round({'満足度': 1, '期待度': 1, 'ギャップ': 2})
             display_df = display_df.drop_duplicates().reset_index(drop=True)
             
+            # 優先度カラムを除外して表示
             st.dataframe(
                 display_df[['カテゴリ', '満足度', '期待度', 'ギャップ', '象限', 'ギャップ評価']], 
                 use_container_width=True,
