@@ -694,6 +694,18 @@ def show_satisfaction_analysis(data, kpis):
             # 4象限の背景色を追加
             mid_x, mid_y = 3, 3  # 中央値
             
+            # 象限分類関数を事前定義
+            def classify_quadrant(row):
+                x, y = row['満足度'], row['期待度']
+                if x >= 3 and y >= 3:
+                    return '🎯 理想的'
+                elif x < 3 and y >= 3:
+                    return '🚨 要改善'
+                elif x >= 3 and y < 3:
+                    return '💎 満足超過'
+                else:
+                    return '🔄 機会領域'
+            
             # 象限の背景色
             fig.add_shape(
                 type="rect", x0=1, y0=mid_y, x1=mid_x, y1=5,
@@ -884,18 +896,6 @@ def show_satisfaction_analysis(data, kpis):
             
             # ギャップテーブル（改善版）
             st.subheader("📋 象限別分析結果")
-            
-            # 象限分類を追加
-            def classify_quadrant(row):
-                x, y = row['満足度'], row['期待度']
-                if x >= 3 and y >= 3:
-                    return '🎯 理想的'
-                elif x < 3 and y >= 3:
-                    return '🚨 要改善'
-                elif x >= 3 and y < 3:
-                    return '💎 満足超過'
-                else:
-                    return '🔄 機会領域'
             
             try:
                 gap_display = gap_df.copy()
