@@ -1330,47 +1330,189 @@ def show_department_analysis(data, kpis):
     
     df = data['employee_data']
     
-    # 部署別統計
-    if 'department' in df.columns:
-        dept_stats = df.groupby('department').agg({
-            'overall_satisfaction': 'mean',
-            'nps_score': 'mean',
-            'contribution_score': 'mean',
-            'long_term_intention': 'mean',
-            'annual_salary': 'mean',
-            'monthly_overtime': 'mean',
-            'response_id': 'count'
-        }).round(2)
+    # タブを作成して内容を整理
+    tabs = st.tabs(["📊 部署別分析", "💪 強み・弱み分析"])
+    
+    with tabs[0]:  # 部署別分析タブ
+        # 部署別統計
+        if 'department' in df.columns:
+            dept_stats = df.groupby('department').agg({
+                'overall_satisfaction': 'mean',
+                'nps_score': 'mean',
+                'contribution_score': 'mean',
+                'long_term_intention': 'mean',
+                'annual_salary': 'mean',
+                'monthly_overtime': 'mean',
+                'response_id': 'count'
+            }).round(2)
+            
+            dept_stats.columns = ['総合満足度', 'NPS', '活躍貢献度', '勤続意向', '平均年収', '平均残業時間', '回答者数']
+            
+            # 部署別満足度比較
+            fig = px.bar(
+                dept_stats.reset_index(),
+                x='department',
+                y='総合満足度',
+                title='部署別総合満足度',
+                color='総合満足度',
+                color_continuous_scale='RdYlGn',
+                text='総合満足度'
+            )
+            fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+            fig.update_layout(height=400, xaxis_title='部署', yaxis_title='満足度')
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # 詳細データテーブル
+            st.subheader("部署別詳細データ")
+            st.dataframe(dept_stats, use_container_width=True)
+        else:
+            st.info("部署情報が含まれていないため、個別回答者の詳細データを表示します")
+            
+            # 個別データの表示
+            display_cols = ['response_id', 'overall_satisfaction', 'nps_score', 'contribution_score', 
+                           'annual_salary', 'monthly_overtime', 'paid_leave_rate']
+            available_cols = [col for col in display_cols if col in df.columns]
+            
+            if available_cols:
+                st.dataframe(df[available_cols], use_container_width=True)
+    
+    with tabs[1]:  # 強み・弱み分析タブ
+        show_strengths_weaknesses_analysis(data, kpis)
+
+def show_strengths_weaknesses_analysis(data, kpis):
+    """強み・弱み分析を表示"""
+    st.subheader("💪 組織の強み・弱み分析")
+    
+    if 'satisfaction_by_category' not in kpis or not kpis['satisfaction_by_category']:
+        st.warning("満足度カテゴリーデータが利用できません")
+        return
+    
+    satisfaction_data = kpis['satisfaction_by_category']
+    
+    # 満足度を降順でソート
+    sorted_satisfaction = sorted(satisfaction_data.items(), key=lambda x: x[1], reverse=True)
+    
+    # TOP5とBOTTOM5を抽出
+    top5_strengths = sorted_satisfaction[:5]
+    bottom5_weaknesses = sorted_satisfaction[-5:]
+    
+    # 2列に分けて表示
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 🌟 **TOP5 強み領域**")
         
-        dept_stats.columns = ['総合満足度', 'NPS', '活躍貢献度', '勤続意向', '平均年収', '平均残業時間', '回答者数']
+        # 強み領域のデータフレーム作成
+        strengths_df = pd.DataFrame(top5_strengths, columns=['カテゴリー', '満足度'])
+        strengths_df['満足度'] = strengths_df['満足度'].round(2)
         
-        # 部署別満足度比較
-        fig = px.bar(
-            dept_stats.reset_index(),
-            x='department',
-            y='総合満足度',
-            title='部署別総合満足度',
-            color='総合満足度',
-            color_continuous_scale='RdYlGn',
-            text='総合満足度'
+        # 強み領域の棒グラフ
+        fig_strengths = px.bar(
+            strengths_df,
+            x='満足度',
+            y='カテゴリー',
+            orientation='h',
+            title='組織の強み TOP5',
+            color='満足度',
+            color_continuous_scale='Greens',
+            text='満足度',
+            height=400
         )
-        fig.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-        fig.update_layout(height=400, xaxis_title='部署', yaxis_title='満足度')
-        st.plotly_chart(fig, use_container_width=True)
+        fig_strengths.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+        fig_strengths.update_layout(
+            yaxis={'categoryorder':'total ascending'},
+            xaxis=dict(range=[0, 5])
+        )
+        st.plotly_chart(fig_strengths, use_container_width=True)
         
-        # 詳細データテーブル
-        st.subheader("部署別詳細データ")
-        st.dataframe(dept_stats, use_container_width=True)
-    else:
-        st.info("部署情報が含まれていないため、個別回答者の詳細データを表示します")
+        # 強み詳細テーブル
+        st.markdown("#### 📈 強み詳細")
+        for i, (category, score) in enumerate(top5_strengths, 1):
+            st.markdown(f"**{i}位** {category}: **{score:.2f}点**")
+    
+    with col2:
+        st.markdown("### ⚠️ **改善要望 TOP5**")
         
-        # 個別データの表示
-        display_cols = ['response_id', 'overall_satisfaction', 'nps_score', 'contribution_score', 
-                       'annual_salary', 'monthly_overtime', 'paid_leave_rate']
-        available_cols = [col for col in display_cols if col in df.columns]
+        # 弱み領域のデータフレーム作成（昇順で表示）
+        weaknesses_df = pd.DataFrame(bottom5_weaknesses, columns=['カテゴリー', '満足度'])
+        weaknesses_df['満足度'] = weaknesses_df['満足度'].round(2)
         
-        if available_cols:
-            st.dataframe(df[available_cols], use_container_width=True)
+        # 弱み領域の棒グラフ
+        fig_weaknesses = px.bar(
+            weaknesses_df,
+            x='満足度',
+            y='カテゴリー',
+            orientation='h',
+            title='改善要望 TOP5',
+            color='満足度',
+            color_continuous_scale='Reds',
+            text='満足度',
+            height=400
+        )
+        fig_weaknesses.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+        fig_weaknesses.update_layout(
+            yaxis={'categoryorder':'total ascending'},
+            xaxis=dict(range=[0, 5])
+        )
+        st.plotly_chart(fig_weaknesses, use_container_width=True)
+        
+        # 弱み詳細テーブル
+        st.markdown("#### 📉 改善要望詳細")
+        for i, (category, score) in enumerate(reversed(bottom5_weaknesses), 1):
+            st.markdown(f"**{i}位** {category}: **{score:.2f}点**")
+    
+    # 全体の満足度分布
+    st.markdown("---")
+    st.subheader("📊 全カテゴリー満足度分布")
+    
+    # 全カテゴリーのデータフレーム作成
+    all_categories_df = pd.DataFrame(sorted_satisfaction, columns=['カテゴリー', '満足度'])
+    all_categories_df['満足度'] = all_categories_df['満足度'].round(2)
+    all_categories_df['順位'] = range(1, len(all_categories_df) + 1)
+    
+    # 色分け用の列を追加
+    all_categories_df['領域'] = all_categories_df.apply(
+        lambda row: '強み' if row['順位'] <= 5 else ('改善要望' if row['順位'] > len(all_categories_df) - 5 else '標準'), 
+        axis=1
+    )
+    
+    # 全体の棒グラフ
+    fig_all = px.bar(
+        all_categories_df,
+        x='満足度',
+        y='カテゴリー',
+        orientation='h',
+        title='全カテゴリー満足度ランキング',
+        color='領域',
+        color_discrete_map={
+            '強み': '#2E8B57',
+            '標準': '#4682B4', 
+            '改善要望': '#DC143C'
+        },
+        text='満足度',
+        height=600
+    )
+    fig_all.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+    fig_all.update_layout(
+        yaxis={'categoryorder':'total ascending'},
+        xaxis=dict(range=[0, 5])
+    )
+    st.plotly_chart(fig_all, use_container_width=True)
+    
+    # 満足度サマリー
+    avg_satisfaction = sum(satisfaction_data.values()) / len(satisfaction_data)
+    st.markdown("---")
+    st.markdown("### 📋 満足度サマリー")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("平均満足度", f"{avg_satisfaction:.2f}点", delta=f"{avg_satisfaction - 3:.2f}")
+    with col2:
+        top_score = top5_strengths[0][1]
+        st.metric("最高満足度", f"{top_score:.2f}点", delta=f"{top_score - avg_satisfaction:.2f}")
+    with col3:
+        bottom_score = bottom5_weaknesses[0][1]
+        st.metric("最低満足度", f"{bottom_score:.2f}点", delta=f"{bottom_score - avg_satisfaction:.2f}")
 
 def main():
     # サイドバー
