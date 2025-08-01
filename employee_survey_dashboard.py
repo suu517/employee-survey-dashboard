@@ -820,12 +820,12 @@ def show_kpi_overview(data, kpis):
         nps_delta = "📈 良好" if kpis['nps'] >= 7 else "📉 要改善" if kpis['nps'] <= 5 else "⚠️ 普通"
         nps_color = "normal" if kpis['nps'] >= 7 else "inverse" if kpis['nps'] <= 5 else "off"
         st.metric(
-            label="📈 推奨度",
-            value=f"{kpis['nps']:.1f}/10",
+            label="📈 eNPS",
+            value=f"{kpis['nps']:.1f}",
             delta=nps_delta,
             delta_color=nps_color
         )
-        st.caption("推奨度（10段階評価）")
+        st.caption("10段階評価")
     
     with col2:
         satisfaction = kpis['avg_satisfaction']
