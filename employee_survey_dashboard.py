@@ -704,11 +704,13 @@ def create_dummy_data():
         
         overall_satisfaction = max(1, min(5, int(base_satisfaction + satisfaction_noise)))
         
-        # 総合評価（eNPS用）を別途生成
-        overall_evaluation = max(1, min(5, int(base_satisfaction + np.random.normal(0, 0.4))))
+        # 推奨スコア（10段階評価）を生成
+        base_recommend = 6.5  # 基準推奨スコア
+        recommend_noise = np.random.normal(0, 1.2)
+        recommend_score = max(1, min(10, int(base_recommend + recommend_noise)))
         
-        # nps_scoreは総合評価と同じ値を使用（1-5スケール）
-        nps_score = overall_evaluation
+        # nps_scoreも同じ値を使用（10段階スケール）
+        nps_score = recommend_score
         
         # その他の指標
         contribution_score = max(1, min(5, int(base_satisfaction + np.random.normal(0, 0.4))))
@@ -722,9 +724,9 @@ def create_dummy_data():
             'annual_salary': annual_salary,
             'monthly_overtime': max(0, min(80, int(np.random.normal(25, 15)))),
             'paid_leave_rate': max(10, min(100, int(np.random.normal(65, 20)))),
+            'recommend_score': recommend_score,
             'nps_score': nps_score,
             'overall_satisfaction': overall_satisfaction,
-            'overall_evaluation': overall_evaluation,
             'long_term_intention': long_term_intention,
             'contribution_score': contribution_score,
             # フィルター用項目
@@ -756,17 +758,13 @@ def calculate_kpis(data):
     
     df = data['employee_data']
     
-    # eNPS計算（総合評価ベース）
-    # 総合評価：1-5点 → eNPS換算：1-2点=-100～-50, 3点=-25～25, 4-5点=25～100
-    if 'overall_evaluation' in df.columns:
-        avg_evaluation = df['overall_evaluation'].mean()
+    # 推奨度計算（10段階評価の平均値）
+    if 'recommend_score' in df.columns:
+        nps = df['recommend_score'].mean()
+    elif 'nps_score' in df.columns:
+        nps = df['nps_score'].mean()
     else:
-        # フォールバック：overall_evaluationがない場合はnps_scoreを使用
-        avg_evaluation = df['nps_score'].mean() if 'nps_score' in df.columns else 3
-    
-    # 1-5点の総合評価を-100～100のeNPSスケールに変換
-    # より直線的な変換で異常値を防ぐ
-    nps = (avg_evaluation - 3) * 50  # 3点=0を中心に、1点=-100, 5点=100
+        nps = 6.5  # デフォルト値
     
     # 満足度カテゴリー
     categories = ['勤務時間', '休日休暇', '有給休暇', '勤務体系', '昇給昇格', '人間関係', 
@@ -819,15 +817,15 @@ def show_kpi_overview(data, kpis):
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        nps_delta = "📈 良好" if kpis['nps'] > 0 else "📉 要改善" if kpis['nps'] < -10 else "⚠️ 普通"
-        nps_color = "normal" if kpis['nps'] > 0 else "inverse" if kpis['nps'] < -10 else "off"
+        nps_delta = "📈 良好" if kpis['nps'] >= 7 else "📉 要改善" if kpis['nps'] <= 5 else "⚠️ 普通"
+        nps_color = "normal" if kpis['nps'] >= 7 else "inverse" if kpis['nps'] <= 5 else "off"
         st.metric(
-            label="📈 eNPS",
-            value=f"{kpis['nps']:.1f}",
+            label="📈 推奨度",
+            value=f"{kpis['nps']:.1f}/10",
             delta=nps_delta,
             delta_color=nps_color
         )
-        st.caption("総合評価")
+        st.caption("推奨度（10段階評価）")
     
     with col2:
         satisfaction = kpis['avg_satisfaction']
@@ -1728,7 +1726,7 @@ def create_dummy_monthly_kpi_data():
         months.append(current_date.strftime('%Y-%m'))
     
     # 基準値からトレンドのあるデータを生成
-    base_evaluation = 3.2  # 基準総合評価（3.2 → eNPS = 10）
+    base_recommend = 6.5  # 基準推奨スコア（10段階）
     base_satisfaction = 3.2  # 基準満足度
     base_contribution = 3.5  # 基準活躍貢献度
     base_retention = 3.1  # 基準勤続意向
@@ -1741,17 +1739,17 @@ def create_dummy_monthly_kpi_data():
         trend_factor = i * 0.02  # 上昇トレンド
         
         # ランダムノイズ
-        noise_evaluation = np.random.normal(0, 0.1)
+        noise_recommend = np.random.normal(0, 0.3)
         noise_satisfaction = np.random.normal(0, 0.1)
         noise_contribution = np.random.normal(0, 0.1)
         noise_retention = np.random.normal(0, 0.1)
         
-        # 総合評価を1-5スケールで生成
-        evaluation = base_evaluation + trend_factor * 2 + seasonal_factor * 0.2 + noise_evaluation
-        evaluation = max(1, min(5, evaluation))
+        # 推奨スコアを10段階で生成
+        recommend = base_recommend + trend_factor * 3 + seasonal_factor * 0.5 + noise_recommend
+        recommend = max(1, min(10, recommend))
         
-        # 総合評価からeNPSを計算
-        enps = (evaluation - 3) * 50
+        # 推奨スコア（10段階評価の平均値）
+        enps = recommend
         
         satisfaction = base_satisfaction + trend_factor * 2 + seasonal_factor * 0.2 + noise_satisfaction
         contribution = base_contribution + trend_factor * 1.5 + seasonal_factor * 0.15 + noise_contribution
