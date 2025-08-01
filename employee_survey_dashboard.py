@@ -765,14 +765,8 @@ def calculate_kpis(data):
         avg_evaluation = df['nps_score'].mean() if 'nps_score' in df.columns else 3
     
     # 1-5点の総合評価を-100～100のeNPSスケールに変換
-    if avg_evaluation <= 2:
-        nps = -100 + (avg_evaluation - 1) * 50  # 1点=-100, 2点=-50
-    elif avg_evaluation <= 3:
-        nps = -50 + (avg_evaluation - 2) * 75   # 2点=-50, 3点=25
-    elif avg_evaluation <= 4:  
-        nps = 25 + (avg_evaluation - 3) * 25    # 3点=25, 4点=50
-    else:
-        nps = 50 + (avg_evaluation - 4) * 50    # 4点=50, 5点=100
+    # より直線的な変換で異常値を防ぐ
+    nps = (avg_evaluation - 3) * 50  # 3点=0を中心に、1点=-100, 5点=100
     
     # 満足度カテゴリー
     categories = ['勤務時間', '休日休暇', '有給休暇', '勤務体系', '昇給昇格', '人間関係', 
@@ -908,16 +902,17 @@ def show_kpi_overview(data, kpis):
         st.caption("休暇利用状況")
     
     with col4:
-        avg_overtime = kpis['avg_overtime']
-        ot_delta = "⚠️ 多い" if avg_overtime > 40 else "✅ 適正" if avg_overtime <= 20 else "📊 普通"
-        ot_color = "inverse" if avg_overtime > 40 else "normal" if avg_overtime <= 20 else "off"
+        avg_start_year = kpis.get('avg_start_year', datetime.now().year - 3)
+        avg_tenure = datetime.now().year - avg_start_year
+        tenure_delta = "📈 ベテラン" if avg_tenure > 5 else "🌱 新鮮" if avg_tenure < 2 else "⚖️ 適度"
+        tenure_color = "normal" if 2 <= avg_tenure <= 5 else "off"
         st.metric(
-            label="⏰ 平均残業時間",
-            value=f"{avg_overtime:.1f}時間/月",
-            delta=ot_delta,
-            delta_color=ot_color
+            label="👤 平均勤続年数",
+            value=f"{avg_tenure:.1f}年",
+            delta=tenure_delta,
+            delta_color=tenure_color
         )
-        st.caption("月間残業時間")
+        st.caption("平均勤続期間")
 
 def show_satisfaction_analysis(data, kpis):
     """満足度分析を表示"""
@@ -1733,7 +1728,7 @@ def create_dummy_monthly_kpi_data():
         months.append(current_date.strftime('%Y-%m'))
     
     # 基準値からトレンドのあるデータを生成
-    base_enps = -10  # 基準eNPS
+    base_evaluation = 3.2  # 基準総合評価（3.2 → eNPS = 10）
     base_satisfaction = 3.2  # 基準満足度
     base_contribution = 3.5  # 基準活躍貢献度
     base_retention = 3.1  # 基準勤続意向
@@ -1746,18 +1741,23 @@ def create_dummy_monthly_kpi_data():
         trend_factor = i * 0.02  # 上昇トレンド
         
         # ランダムノイズ
-        noise_enps = np.random.normal(0, 5)
+        noise_evaluation = np.random.normal(0, 0.1)
         noise_satisfaction = np.random.normal(0, 0.1)
         noise_contribution = np.random.normal(0, 0.1)
         noise_retention = np.random.normal(0, 0.1)
         
-        enps = base_enps + trend_factor * 50 + seasonal_factor * 10 + noise_enps
+        # 総合評価を1-5スケールで生成
+        evaluation = base_evaluation + trend_factor * 2 + seasonal_factor * 0.2 + noise_evaluation
+        evaluation = max(1, min(5, evaluation))
+        
+        # 総合評価からeNPSを計算
+        enps = (evaluation - 3) * 50
+        
         satisfaction = base_satisfaction + trend_factor * 2 + seasonal_factor * 0.2 + noise_satisfaction
         contribution = base_contribution + trend_factor * 1.5 + seasonal_factor * 0.15 + noise_contribution
         retention = base_retention + trend_factor * 1.8 + seasonal_factor * 0.18 + noise_retention
         
         # 値の範囲制限
-        enps = max(-100, min(100, enps))
         satisfaction = max(1, min(5, satisfaction))
         contribution = max(1, min(5, contribution))
         retention = max(1, min(5, retention))
