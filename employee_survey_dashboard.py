@@ -1051,34 +1051,34 @@ def show_satisfaction_analysis(data, kpis):
             def classify_quadrant(row):
                 x, y = row['満足度'], row['期待度']
                 if x >= 3 and y >= 3:
-                    return '🎯 理想的'
+                    return '💪 強み'
                 elif x < 3 and y >= 3:
-                    return '🚨 要改善'
+                    return '🔴 優先改善課題'
                 elif x >= 3 and y < 3:
-                    return '💎 満足超過'
+                    return '✅ 現状維持項目'
                 else:
-                    return '🔄 機会領域'
+                    return '⚫ 弱み'
             
             # 象限の背景色（拡大版 - 文字の視認性向上）
             fig.add_shape(
                 type="rect", x0=0.5, y0=mid_y, x1=mid_x, y1=5.5,
                 fillcolor="rgba(245, 101, 101, 0.15)", line=dict(width=0),
-                name="要改善（低満足・高期待）"
+                name="優先改善課題（低満足・高期待）"
             )
             fig.add_shape(
                 type="rect", x0=mid_x, y0=mid_y, x1=5.5, y1=5.5,
                 fillcolor="rgba(72, 187, 120, 0.15)", line=dict(width=0),
-                name="理想的（高満足・高期待）"
+                name="強み（高満足・高期待）"
             )
             fig.add_shape(
                 type="rect", x0=0.5, y0=0.5, x1=mid_x, y1=mid_y,
                 fillcolor="rgba(237, 137, 54, 0.15)", line=dict(width=0),
-                name="機会領域（低満足・低期待）"
+                name="弱み（低満足・低期待）"
             )
             fig.add_shape(
                 type="rect", x0=mid_x, y0=0.5, x1=5.5, y1=mid_y,
                 fillcolor="rgba(159, 122, 234, 0.15)", line=dict(width=0),
-                name="満足超過（高満足・低期待）"
+                name="現状維持項目（高満足・低期待）"
             )
             
             # 区切り線を追加
@@ -1099,13 +1099,13 @@ def show_satisfaction_analysis(data, kpis):
                 ]
                 
                 # 象限ベースの基本位置を決定
-                if x >= mid_x and y >= mid_y:  # 理想的
+                if x >= mid_x and y >= mid_y:  # 強み
                     base_pos = ["top center", "top right", "middle right"]
-                elif x < mid_x and y >= mid_y:  # 要改善
+                elif x < mid_x and y >= mid_y:  # 優先改善課題
                     base_pos = ["top center", "top left", "middle left"]
-                elif x >= mid_x and y < mid_y:  # 満足超過
+                elif x >= mid_x and y < mid_y:  # 現状維持項目
                     base_pos = ["bottom center", "bottom right", "middle right"]
-                else:  # 機会領域
+                else:  # 弱み
                     base_pos = ["bottom center", "bottom left", "middle left"]
                 
                 # インデックスに基づいて位置を循環選択
@@ -1117,16 +1117,16 @@ def show_satisfaction_analysis(data, kpis):
                 
                 # 象限によって色を決定（すべて円形で統一）
                 if x >= mid_x and y >= mid_y:
-                    colors.append('#48BB78')  # 緑 - 理想的
+                    colors.append('#48BB78')  # 緑 - 強み
                     symbols.append('circle')
                 elif x < mid_x and y >= mid_y:
-                    colors.append('#F56565')  # 赤 - 要改善
+                    colors.append('#F56565')  # 赤 - 優先改善課題
                     symbols.append('circle')
                 elif x >= mid_x and y < mid_y:
-                    colors.append('#9F7AEA')  # 紫 - 満足超過
+                    colors.append('#9F7AEA')  # 紫 - 現状維持項目
                     symbols.append('circle')
                 else:
-                    colors.append('#ED8936')  # オレンジ - 機会領域
+                    colors.append('#ED8936')  # オレンジ - 弱み
                     symbols.append('circle')
                 
                 sizes.append(20)  # 統一サイズ
@@ -1223,20 +1223,20 @@ def show_satisfaction_analysis(data, kpis):
             
             # 象限ラベルを追加（重なり回避のため外側に配置）
             annotations = [
-                dict(x=4.8, y=4.8, text="<b>🎯 理想的</b><br>(高満足・高期待)", 
+                dict(x=4.8, y=4.8, text="<b>💪 強み</b><br>(高満足・高期待)", 
                      showarrow=False, font=dict(size=10, color='#22543d'), 
                      bgcolor='rgba(72, 187, 120, 0.2)', bordercolor='#48BB78',
                      xanchor='center', yanchor='middle'),
-                dict(x=1.2, y=4.8, text="<b>🚨 要改善</b><br>(低満足・高期待)", 
+                dict(x=1.2, y=4.8, text="<b>🔴 優先改善課題</b><br>(低満足・高期待)", 
                      showarrow=False, font=dict(size=10, color='#742a2a'), 
                      bgcolor='rgba(245, 101, 101, 0.2)', bordercolor='#F56565',
                      xanchor='center', yanchor='middle'),
-                dict(x=4.8, y=1.2, text="<b>💎 満足超過</b><br>(高満足・低期待)", 
+                dict(x=4.8, y=1.2, text="<b>✅ 現状維持項目</b><br>(高満足・低期待)", 
                      showarrow=False, font=dict(size=10, color='#553c9a'), 
                      bgcolor='rgba(159, 122, 234, 0.2)', bordercolor='#9F7AEA',
                      xanchor='center', yanchor='middle'),
-                dict(x=1.2, y=1.2, text="<b>🔄 機会領域</b><br>(低満足・低期待)", 
-                     showarrow=False, font=dict(size=10, color='#c05621'), 
+                dict(x=1.2, y=1.2, text="<b>⚫ 弱み</b><br>(低満足・低期待)", 
+                     showarrow=False, font=dict(size=10, color='#9c4221'), 
                      bgcolor='rgba(237, 137, 54, 0.2)', bordercolor='#ED8936',
                      xanchor='center', yanchor='middle')
             ]
@@ -1249,10 +1249,10 @@ def show_satisfaction_analysis(data, kpis):
             # 象限別の説明
             st.info("""
             **📊 4象限の解釈**
-            - 🎯 **理想的（右上）**: 満足度・期待度ともに高い項目。現状維持・さらなる強化
-            - 🚨 **要改善（左上）**: 期待は高いが満足度が低い項目。最優先で改善が必要
-            - 💎 **満足超過（右下）**: 満足度は高いが期待度が低い項目。アピールや認知向上の機会
-            - 🔄 **機会領域（左下）**: 期待・満足ともに低い項目。将来的な改善検討領域
+            - 💪 **強み（右上）**: 満足度・期待度ともに高い項目。競争優位性の源泉
+            - 🔴 **優先改善課題（左上）**: 期待は高いが満足度が低い項目。最優先で改善が必要
+            - ✅ **現状維持項目（右下）**: 満足度は高いが期待度が低い項目。現状の品質を維持
+            - ⚫ **弱み（左下）**: 期待・満足ともに低い項目。長期的な改善検討が必要
             """)
             
             # ギャップテーブル（改善版）
@@ -1266,7 +1266,7 @@ def show_satisfaction_analysis(data, kpis):
                 )
                 
                 # 優先度を設定
-                priority_map = {'🚨 要改善': 1, '🔄 機会領域': 2, '💎 満足超過': 3, '🎯 理想的': 4}
+                priority_map = {'🔴 優先改善課題': 1, '⚫ 弱み': 2, '✅ 現状維持項目': 3, '💪 強み': 4}
                 gap_display['優先度'] = gap_display['象限'].map(priority_map)
                 
                 # NaNの処理
