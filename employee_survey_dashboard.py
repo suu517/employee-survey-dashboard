@@ -16,10 +16,18 @@ from collections import Counter
 from janome.tokenizer import Tokenizer
 import networkx as nx
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.metrics import r2_score, mean_squared_error
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+import statsmodels.api as sm
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import locale
+import warnings
+warnings.filterwarnings('ignore')
 
 # ページ設定
 st.set_page_config(
@@ -2017,7 +2025,7 @@ def main():
         # ページ選択
         page = st.radio(
             "📋 分析ページ選択",
-            ["📊 KPI概要", "📈 満足度分析", "🏢 詳細分析", "📝 テキストマイニング", "⏰ 時系列分析"],
+            ["📊 KPI概要", "📈 満足度分析", "🏢 詳細分析", "📝 テキストマイニング", "⏰ 時系列分析", "🔬 重回帰分析"],
             index=0
         )
         
@@ -2169,6 +2177,268 @@ def main():
         show_text_mining_analysis()
     elif page == "⏰ 時系列分析":
         show_time_series_analysis()
+    elif page == "🔬 重回帰分析":
+        show_regression_analysis(filtered_data, kpis)
+
+def show_regression_analysis(data, kpis):
+    """重回帰分析を表示"""
+    st.header("🔬 重回帰分析")
+    st.markdown("主要指標に対する満足度項目の影響力を分析します")
+    
+    if not data or 'employee_data' not in data:
+        st.error("分析に必要なデータが不足しています")
+        return
+    
+    df = data['employee_data']
+    
+    # 目的変数の選択
+    target_options = {
+        'eNPS (推奨度)': 'recommend_score',
+        '総合満足度': 'overall_satisfaction', 
+        '勤続意向': 'long_term_intention',
+        '活躍貢献度': 'contribution_score'
+    }
+    
+    selected_target = st.selectbox(
+        "🎯 分析対象（目的変数）を選択してください",
+        list(target_options.keys())
+    )
+    
+    target_col = target_options[selected_target]
+    
+    # 満足度項目（説明変数）を定義
+    satisfaction_categories = [
+        '勤務時間', '休日休暇', '有給休暇', '勤務体系', '昇給昇格', '人間関係',
+        '働く環境', '成長実感', '将来キャリア', '福利厚生', '評価制度'
+    ]
+    
+    # データの準備
+    try:
+        # 目的変数の確認
+        if target_col not in df.columns:
+            st.error(f"目的変数 '{target_col}' がデータに含まれていません")
+            return
+            
+        y = df[target_col].copy()
+        
+        # 説明変数の準備（満足度項目）
+        X_data = []
+        available_features = []
+        
+        for category in satisfaction_categories:
+            sat_col = f"{category}_満足度"
+            exp_col = f"{category}_期待度"
+            
+            # 満足度データがある場合は追加
+            if sat_col in df.columns:
+                X_data.append(df[sat_col])
+                available_features.append(f"{category}_満足度")
+            elif category in df.columns:  # カテゴリ名そのものがカラム名の場合
+                X_data.append(df[category])
+                available_features.append(category)
+        
+        if not X_data:
+            st.error("説明変数となる満足度データが見つかりません")
+            return
+            
+        X = pd.DataFrame(X_data).T
+        X.columns = available_features
+        
+        # 欠損値の処理
+        X = X.fillna(X.mean())
+        y = y.fillna(y.mean())
+        
+        # 有効なデータのみを使用
+        valid_idx = ~(X.isna().any(axis=1) | y.isna())
+        X = X[valid_idx]
+        y = y[valid_idx]
+        
+        if len(X) < 10:
+            st.warning("分析に十分なデータがありません（最低10件必要）")
+            return
+            
+        st.success(f"✅ 分析データ準備完了: {len(X)}件のデータを使用")
+        
+        # タブで結果を整理
+        tab1, tab2, tab3, tab4 = st.tabs(["📊 分析結果", "🔍 多重共線性診断", "📈 係数可視化", "🎯 予測精度"])
+        
+        with tab1:
+            st.subheader("📊 重回帰分析結果")
+            
+            # 標準化
+            scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(X)
+            X_scaled_df = pd.DataFrame(X_scaled, columns=X.columns, index=X.index)
+            
+            # 重回帰分析実行
+            model = LinearRegression()
+            model.fit(X_scaled_df, y)
+            
+            # 予測値計算
+            y_pred = model.predict(X_scaled_df)
+            
+            # 決定係数とRMSE
+            r2 = r2_score(y, y_pred)
+            rmse = np.sqrt(mean_squared_error(y, y_pred))
+            
+            # 結果表示
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("決定係数 (R²)", f"{r2:.3f}")
+            with col2:
+                st.metric("RMSE", f"{rmse:.3f}")
+            
+            # 回帰係数の表示
+            coef_df = pd.DataFrame({
+                '説明変数': X.columns,
+                '標準化係数': model.coef_,
+                '絶対値': np.abs(model.coef_)
+            }).sort_values('絶対値', ascending=False)
+            
+            st.subheader("📋 回帰係数ランキング")
+            st.dataframe(
+                coef_df[['説明変数', '標準化係数']].round(4),
+                use_container_width=True,
+                hide_index=True
+            )
+            
+        with tab2:
+            st.subheader("🔍 多重共線性診断")
+            
+            # VIF計算
+            def calculate_vif(X_df):
+                vif_data = pd.DataFrame()
+                vif_data["説明変数"] = X_df.columns
+                vif_data["VIF"] = [variance_inflation_factor(X_df.values, i) 
+                                 for i in range(len(X_df.columns))]
+                return vif_data.sort_values('VIF', ascending=False)
+            
+            try:
+                # 定数項を追加してVIF計算
+                X_with_const = sm.add_constant(X_scaled_df)
+                vif_df = calculate_vif(X_scaled_df)
+                
+                st.dataframe(vif_df.round(2), use_container_width=True, hide_index=True)
+                
+                # VIF解釈の説明
+                high_vif = vif_df[vif_df['VIF'] > 5]
+                if len(high_vif) > 0:
+                    st.warning("""
+                    ⚠️ **多重共線性の可能性があります**
+                    - VIF > 5: 多重共線性の疑いあり
+                    - VIF > 10: 深刻な多重共線性
+                    """)
+                    
+                    # PCA実行の提案
+                    if st.button("🔄 主成分分析で次元圧縮を実行"):
+                        st.info("主成分分析を実行して多重共線性を解決します...")
+                        
+                        # PCA実行
+                        pca = PCA()
+                        X_pca = pca.fit_transform(X_scaled_df)
+                        
+                        # 累積寄与率95%までの成分を選択
+                        cumsum_ratio = np.cumsum(pca.explained_variance_ratio_)
+                        n_components = np.argmax(cumsum_ratio >= 0.95) + 1
+                        
+                        st.write(f"📊 95%の分散を説明するのに必要な主成分数: {n_components}")
+                        
+                        # 主成分での分析
+                        pca_selected = PCA(n_components=n_components)
+                        X_pca_selected = pca_selected.fit_transform(X_scaled_df)
+                        
+                        model_pca = LinearRegression()
+                        model_pca.fit(X_pca_selected, y)
+                        y_pred_pca = model_pca.predict(X_pca_selected)
+                        
+                        r2_pca = r2_score(y, y_pred_pca)
+                        rmse_pca = np.sqrt(mean_squared_error(y, y_pred_pca))
+                        
+                        st.success(f"🎯 PCA後の精度: R² = {r2_pca:.3f}, RMSE = {rmse_pca:.3f}")
+                        
+                        # 主成分の解釈
+                        components_df = pd.DataFrame(
+                            pca_selected.components_.T,
+                            columns=[f'PC{i+1}' for i in range(n_components)],
+                            index=X.columns
+                        )
+                        
+                        st.subheader("📋 主成分の構成")
+                        st.dataframe(components_df.round(3), use_container_width=True)
+                        
+                else:
+                    st.success("✅ 多重共線性の問題は検出されませんでした")
+                    
+            except Exception as e:
+                st.error(f"VIF計算中にエラーが発生しました: {str(e)}")
+                
+        with tab3:
+            st.subheader("📈 回帰係数の可視化")
+            
+            # 係数の棒グラフ
+            fig = px.bar(
+                coef_df,
+                x='標準化係数',
+                y='説明変数',
+                orientation='h',
+                title=f'{selected_target}に対する各要因の影響力',
+                color='標準化係数',
+                color_continuous_scale='RdBu_r'
+            )
+            fig.update_layout(height=600)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # 影響力の解釈
+            st.subheader("📝 結果の解釈")
+            top_positive = coef_df[coef_df['標準化係数'] > 0].head(3)
+            top_negative = coef_df[coef_df['標準化係数'] < 0].head(3)
+            
+            if len(top_positive) > 0:
+                st.write("**🔺 正の影響（向上要因）:**")
+                for _, row in top_positive.iterrows():
+                    st.write(f"- {row['説明変数']}: {row['標準化係数']:.3f}")
+                    
+            if len(top_negative) > 0:
+                st.write("**🔻 負の影響（阻害要因）:**")
+                for _, row in top_negative.iterrows():
+                    st.write(f"- {row['説明変数']}: {row['標準化係数']:.3f}")
+                    
+        with tab4:
+            st.subheader("🎯 予測精度の評価")
+            
+            # 実測値 vs 予測値のプロット
+            fig = px.scatter(
+                x=y, 
+                y=y_pred,
+                title='実測値 vs 予測値',
+                labels={'x': f'実測値 ({selected_target})', 'y': f'予測値 ({selected_target})'}
+            )
+            
+            # 完全予測線を追加
+            min_val, max_val = min(y.min(), y_pred.min()), max(y.max(), y_pred.max())
+            fig.add_shape(
+                type="line",
+                x0=min_val, y0=min_val,
+                x1=max_val, y1=max_val,
+                line=dict(color="red", dash="dash")
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # 残差プロット
+            residuals = y - y_pred
+            fig_residual = px.scatter(
+                x=y_pred,
+                y=residuals,
+                title='残差プロット',
+                labels={'x': '予測値', 'y': '残差'}
+            )
+            fig_residual.add_hline(y=0, line_dash="dash", line_color="red")
+            st.plotly_chart(fig_residual, use_container_width=True)
+            
+    except Exception as e:
+        st.error(f"分析中にエラーが発生しました: {str(e)}")
+        st.info("データの形式や内容を確認してください")
 
 if __name__ == "__main__":
     main()
