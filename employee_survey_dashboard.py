@@ -21,7 +21,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.metrics import r2_score, mean_squared_error
 from statsmodels.stats.outliers_influence import variance_inflation_factor
+from statsmodels.stats.diagnostic import durbin_watson, het_breuschpagan
 import statsmodels.api as sm
+from scipy import stats
+from scipy.stats import probplot
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
@@ -207,27 +210,38 @@ st.markdown("""
 def load_employee_data():
     """従業員調査データを読み込む（実データ対応）"""
     try:
-        excel_path = './data.xlsx'
+        excel_path = '/Users/sugayayoshiyuki/Desktop/採用可視化サーベイ/従業員調査.xlsx'
         
         if not os.path.exists(excel_path):
-            st.error("データファイル 'data.xlsx' が見つかりません")
+            st.error("データファイルが見つかりません")
             return create_dummy_data()
         
-        # Responsesシートから実データを読み込む
+        # Responsesシートから実データを読み込む（header=1を指定）
         try:
-            responses_df = pd.read_excel(excel_path, sheet_name='Responses')
+            responses_df = pd.read_excel(excel_path, sheet_name='Responses', header=1)
             
-            # ヘッダー行（1行目）を取得して列名として使用
-            if len(responses_df) >= 1:
-                # 1行目をヘッダーとして設定
-                header_row = responses_df.iloc[0]
-                responses_df = responses_df.iloc[1:].reset_index(drop=True)
-                responses_df.columns = header_row
+            if len(responses_df) > 0:
+                st.info(f"✅ 実データを読み込みました: {len(responses_df)}件、{len(responses_df.columns)}列")
                 
-                # データが存在する場合は実データを処理
-                if len(responses_df) > 0:
-                    processed_data = process_real_survey_data(responses_df)
-                    return processed_data
+                # カラム名のマッピング
+                column_mapping = {
+                    '総合評価：自分の親しい友人や家族に対して、この会社への転職・就職をどの程度勧めたいと思いますか？': 'recommend_score',
+                    '総合満足度：自社の現在の働く環境や条件、周りの人間関係なども含めあなたはどの程度満足されていますか？': 'overall_satisfaction',
+                    'あなたはこの会社でこれからも長く働きたいと思われますか？': 'long_term_intention',
+                    '活躍貢献度：現在の会社や所属組織であなたはどの程度、活躍貢献できていると感じますか？': 'sense_of_contribution'
+                }
+                
+                # マッピングを適用
+                responses_df = responses_df.rename(columns=column_mapping)
+                
+                # 数値データの抽出と変換
+                for col in ['recommend_score', 'overall_satisfaction', 'long_term_intention', 'sense_of_contribution']:
+                    if col in responses_df.columns:
+                        # 数値部分を抽出して数値に変換
+                        extracted = responses_df[col].astype(str).str.extract(r'(\d+)', expand=False)
+                        responses_df[col] = pd.to_numeric(extracted, errors='coerce')
+                
+                return {'employee_data': responses_df}
                 
         except Exception as e:
             st.error(f"Responsesシートの読み込みエラー: {e}")
@@ -2025,7 +2039,7 @@ def main():
         # ページ選択
         page = st.radio(
             "📋 分析ページ選択",
-            ["📊 KPI概要", "📈 満足度分析", "🏢 詳細分析", "📝 テキストマイニング", "⏰ 時系列分析", "🔬 重回帰分析"],
+            ["📊 KPI概要", "📈 満足度分析", "🏢 詳細分析", "📝 テキストマイニング", "⏰ 時系列分析", "🔬 重回帰分析", "🤖 AI テキスト分析"],
             index=0
         )
         
@@ -2179,6 +2193,11 @@ def main():
         show_time_series_analysis()
     elif page == "🔬 重回帰分析":
         show_regression_analysis(filtered_data, kpis)
+    
+    elif page == "🤖 AI テキスト分析":
+        # 新しいAIテキスト分析機能を表示
+        from text_analysis_ml import show_text_analysis_ml_page
+        show_text_analysis_ml_page()
 
 def show_regression_analysis(data, kpis):
     """重回帰分析を表示"""
@@ -2191,13 +2210,56 @@ def show_regression_analysis(data, kpis):
     
     df = data['employee_data']
     
-    # 目的変数の選択
-    target_options = {
-        'eNPS (推奨度)': 'recommend_score',
-        '総合満足度': 'overall_satisfaction', 
-        '勤続意向': 'long_term_intention',
-        '活躍貢献度': 'contribution_score'
-    }
+    # 目的変数の選択（利用可能な列名を自動検出）
+    target_options = {}
+    
+    # eNPS関連の列名を検索
+    enps_candidates = ['nps_score', 'recommend_score']
+    for candidate in enps_candidates:
+        if candidate in df.columns:
+            target_options['eNPS (推奨度)'] = candidate
+            break
+    
+    # 実際のExcelデータの列名も検索
+    for col in df.columns:
+        col_str = str(col)
+        if any(keyword in col_str for keyword in ['推奨', '親しい友人', '家族', '転職', '就職', '総合評価']):
+            target_options['eNPS (推奨度)'] = col
+            break
+    
+    # その他の目的変数（実データ対応）
+    if 'overall_satisfaction' in df.columns:
+        target_options['総合満足度'] = 'overall_satisfaction'
+    else:
+        # 実際のExcelデータの総合満足度列を検索
+        for col in df.columns:
+            if '総合満足度' in str(col):
+                target_options['総合満足度'] = col
+                break
+    
+    if 'long_term_intention' in df.columns:
+        target_options['勤続意向'] = 'long_term_intention'
+    else:
+        # 実際のExcelデータの勤続意向列を検索
+        for col in df.columns:
+            if any(keyword in str(col) for keyword in ['長く働きたい', '勤続', '意向']):
+                target_options['勤続意向'] = col
+                break
+                
+    if 'contribution_score' in df.columns:
+        target_options['活躍貢献度'] = 'contribution_score'
+    else:
+        # 実際のExcelデータの活躍貢献度列を検索
+        for col in df.columns:
+            if any(keyword in str(col) for keyword in ['活躍貢献', '貢献できている']):
+                target_options['活躍貢献度'] = col
+                break
+    
+    if not target_options:
+        st.error("分析可能な目的変数が見つかりません。データの列名を確認してください。")
+        st.info("利用可能な列名:")
+        st.write(list(df.columns))
+        return
     
     selected_target = st.selectbox(
         "🎯 分析対象（目的変数）を選択してください",
@@ -2212,6 +2274,13 @@ def show_regression_analysis(data, kpis):
         '働く環境', '成長実感', '将来キャリア', '福利厚生', '評価制度'
     ]
     
+    # デバッグ情報：利用可能な列名を表示
+    with st.expander("🔍 デバッグ情報（利用可能な列名）"):
+        st.write("**全ての列名:**")
+        st.write(list(df.columns))
+        st.write(f"**選択された目的変数:** {target_col}")
+        st.write("**データの形状:**", df.shape)
+    
     # データの準備
     try:
         # 目的変数の確認
@@ -2219,30 +2288,70 @@ def show_regression_analysis(data, kpis):
             st.error(f"目的変数 '{target_col}' がデータに含まれていません")
             return
             
+        # 目的変数の数値変換
         y = df[target_col].copy()
+        
+        # eNPS（推奨度）の場合の特別処理
+        if 'eNPS' in selected_target:
+            # "7 (Passive)" のような文字列から数値を抽出
+            y = y.astype(str).str.extract(r'(\d+)', expand=False).astype(float)
+        else:
+            # その他の場合は数値変換を試行
+            try:
+                y = pd.to_numeric(y, errors='coerce')
+            except:
+                st.error(f"目的変数 '{target_col}' を数値に変換できません")
+                return
         
         # 説明変数の準備（満足度項目）
         X_data = []
         available_features = []
         
+        # 満足度系の列名パターンを検索
+        satisfaction_patterns = ['満足度', '評価', '度合い']
+        
         for category in satisfaction_categories:
+            # パターン1: カテゴリ_満足度
             sat_col = f"{category}_満足度"
-            exp_col = f"{category}_期待度"
-            
-            # 満足度データがある場合は追加
             if sat_col in df.columns:
                 X_data.append(df[sat_col])
-                available_features.append(f"{category}_満足度")
-            elif category in df.columns:  # カテゴリ名そのものがカラム名の場合
+                available_features.append(sat_col)
+                continue
+                
+            # パターン2: カテゴリ名そのもの
+            if category in df.columns:
                 X_data.append(df[category])
                 available_features.append(category)
+                continue
+        
+        # 追加で満足度系の列を自動検出
+        for col in df.columns:
+            if any(pattern in col for pattern in satisfaction_patterns) and col not in available_features:
+                # 目的変数と同じ列は除外
+                if col != target_col:
+                    try:
+                        # 数値データに変換を試行
+                        numeric_data = pd.to_numeric(df[col], errors='coerce')
+                        # 欠損値が80%未満の場合のみ採用
+                        if numeric_data.notna().sum() / len(numeric_data) > 0.2:
+                            X_data.append(numeric_data)
+                            available_features.append(col)
+                    except:
+                        pass
         
         if not X_data:
             st.error("説明変数となる満足度データが見つかりません")
+            st.info("利用可能な列名から満足度系のデータを探しましたが見つかりませんでした。")
             return
             
         X = pd.DataFrame(X_data).T
         X.columns = available_features
+        
+        # 選択された説明変数を表示
+        st.info(f"📋 **検出された説明変数:** {len(available_features)}個")
+        with st.expander("使用する説明変数一覧"):
+            for i, feature in enumerate(available_features, 1):
+                st.write(f"{i}. {feature}")
         
         # 欠損値の処理
         X = X.fillna(X.mean())
@@ -2260,7 +2369,7 @@ def show_regression_analysis(data, kpis):
         st.success(f"✅ 分析データ準備完了: {len(X)}件のデータを使用")
         
         # タブで結果を整理
-        tab1, tab2, tab3, tab4 = st.tabs(["📊 分析結果", "🔍 多重共線性診断", "📈 係数可視化", "🎯 予測精度"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 分析結果", "🔍 多重共線性診断", "📈 係数可視化", "🎯 予測精度", "📈 詳細統計"])
         
         with tab1:
             st.subheader("📊 重回帰分析結果")
@@ -2288,16 +2397,56 @@ def show_regression_analysis(data, kpis):
             with col2:
                 st.metric("RMSE", f"{rmse:.3f}")
             
-            # 回帰係数の表示
-            coef_df = pd.DataFrame({
-                '説明変数': X.columns,
-                '標準化係数': model.coef_,
-                '絶対値': np.abs(model.coef_)
-            }).sort_values('絶対値', ascending=False)
+            # 統計的検定のためのOLS回帰を実行
+            X_with_const = sm.add_constant(X_scaled_df)
+            ols_model = sm.OLS(y, X_with_const).fit()
             
-            st.subheader("📋 回帰係数ランキング")
+            # 回帰係数の表示（統計的有意性を含む）
+            coef_data = []
+            for i, var in enumerate(X.columns):
+                coef = model.coef_[i]
+                p_value = ols_model.pvalues[var] if var in ols_model.pvalues.index else None
+                conf_int = ols_model.conf_int().loc[var] if var in ols_model.conf_int().index else [None, None]
+                
+                significance = ""
+                if p_value is not None:
+                    if p_value < 0.001:
+                        significance = "***"
+                    elif p_value < 0.01:
+                        significance = "**"
+                    elif p_value < 0.05:
+                        significance = "*"
+                    elif p_value < 0.1:
+                        significance = "†"
+                
+                coef_data.append({
+                    '説明変数': var,
+                    '標準化係数': coef,
+                    'p値': p_value,
+                    '有意性': significance,
+                    '95%信頼区間下限': conf_int[0],
+                    '95%信頼区間上限': conf_int[1],
+                    '絶対値': np.abs(coef)
+                })
+            
+            coef_df = pd.DataFrame(coef_data).sort_values('絶対値', ascending=False)
+            
+            st.subheader("📋 回帰係数ランキング（統計的有意性付き）")
+            
+            # 有意性の説明
+            st.markdown("""
+            **有意性レベル:** *** p<0.001, ** p<0.01, * p<0.05, † p<0.1
+            """)
+            
+            # 表示用データフレームを作成
+            display_coef_df = coef_df[['説明変数', '標準化係数', 'p値', '有意性', '95%信頼区間下限', '95%信頼区間上限']].copy()
+            display_coef_df['標準化係数'] = display_coef_df['標準化係数'].round(4)
+            display_coef_df['p値'] = display_coef_df['p値'].round(4)
+            display_coef_df['95%信頼区間下限'] = display_coef_df['95%信頼区間下限'].round(4)
+            display_coef_df['95%信頼区間上限'] = display_coef_df['95%信頼区間上限'].round(4)
+            
             st.dataframe(
-                coef_df[['説明変数', '標準化係数']].round(4),
+                display_coef_df,
                 use_container_width=True,
                 hide_index=True
             )
@@ -2375,18 +2524,79 @@ def show_regression_analysis(data, kpis):
         with tab3:
             st.subheader("📈 回帰係数の可視化")
             
-            # 係数の棒グラフ
+            # 統計的有意性を色で表現
+            coef_df['有意性_数値'] = coef_df['p値'].apply(lambda x: 
+                0 if pd.isna(x) else 
+                4 if x < 0.001 else 
+                3 if x < 0.01 else 
+                2 if x < 0.05 else 
+                1 if x < 0.1 else 0
+            )
+            
+            # 係数の棒グラフ（有意性で色分け）
             fig = px.bar(
                 coef_df,
                 x='標準化係数',
                 y='説明変数',
                 orientation='h',
-                title=f'{selected_target}に対する各要因の影響力',
-                color='標準化係数',
-                color_continuous_scale='RdBu_r'
+                title=f'{selected_target}に対する各要因の影響力（有意性で色分け）',
+                color='有意性_数値',
+                color_continuous_scale=['lightgray', 'lightblue', 'yellow', 'orange', 'red'],
+                hover_data=['p値', '有意性']
             )
-            fig.update_layout(height=600)
+            fig.update_layout(
+                height=600,
+                coloraxis_colorbar=dict(
+                    title="有意性レベル",
+                    tickvals=[0, 1, 2, 3, 4],
+                    ticktext=["n.s.", "p<0.1", "p<0.05", "p<0.01", "p<0.001"]
+                )
+            )
             st.plotly_chart(fig, use_container_width=True)
+            
+            # 信頼区間のプロット
+            st.subheader("📊 回帰係数の信頼区間")
+            
+            # 信頼区間のプロット用データ準備
+            plot_data = coef_df.copy()
+            plot_data = plot_data.sort_values('標準化係数')
+            
+            fig_ci = go.Figure()
+            
+            # 点推定値
+            fig_ci.add_trace(go.Scatter(
+                x=plot_data['標準化係数'],
+                y=plot_data['説明変数'],
+                mode='markers',
+                marker=dict(size=10, color='blue'),
+                name='点推定値',
+                text=plot_data['有意性'],
+                textposition="middle right"
+            ))
+            
+            # 信頼区間
+            for idx, row in plot_data.iterrows():
+                if not pd.isna(row['95%信頼区間下限']) and not pd.isna(row['95%信頼区間上限']):
+                    fig_ci.add_trace(go.Scatter(
+                        x=[row['95%信頼区間下限'], row['95%信頼区間上限']],
+                        y=[row['説明変数'], row['説明変数']],
+                        mode='lines',
+                        line=dict(color='gray', width=2),
+                        showlegend=False,
+                        hoverinfo='skip'
+                    ))
+            
+            # ゼロライン
+            fig_ci.add_vline(x=0, line_dash="dash", line_color="red", annotation_text="ゼロライン")
+            
+            fig_ci.update_layout(
+                title="回帰係数の95%信頼区間",
+                xaxis_title="標準化回帰係数",
+                yaxis_title="説明変数",
+                height=600
+            )
+            
+            st.plotly_chart(fig_ci, use_container_width=True)
             
             # 影響力の解釈
             st.subheader("📝 結果の解釈")
@@ -2435,6 +2645,146 @@ def show_regression_analysis(data, kpis):
             )
             fig_residual.add_hline(y=0, line_dash="dash", line_color="red")
             st.plotly_chart(fig_residual, use_container_width=True)
+            
+        with tab5:
+            st.subheader("📈 詳細統計情報")
+            
+            # モデル全体の統計情報
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("調整済みR²", f"{ols_model.rsquared_adj:.4f}")
+                st.metric("AIC", f"{ols_model.aic:.2f}")
+                
+            with col2:
+                st.metric("BIC", f"{ols_model.bic:.2f}")
+                st.metric("F統計量", f"{ols_model.fvalue:.2f}")
+                
+            with col3:
+                st.metric("F検定p値", f"{ols_model.f_pvalue:.4f}")
+                st.metric("尤度比", f"{ols_model.llf:.2f}")
+            
+            # 回帰分析の前提条件の検証
+            st.subheader("🔍 回帰分析の前提条件チェック")
+            
+            # 正規性検定（Shapiro-Wilk検定）
+            shapiro_stat, shapiro_p = stats.shapiro(residuals)
+            
+            # Durbin-Watson統計量（自己相関の検定）
+            dw_stat = durbin_watson(residuals)
+            
+            # Breusch-Pagan検定（等分散性の検定）
+            bp_stat, bp_p, bp_f_stat, bp_f_p = het_breuschpagan(residuals, X_with_const)
+            
+            # 前提条件チェック結果
+            st.markdown("### 📋 診断結果")
+            
+            # 正規性
+            normality_status = "✅ 正規性OK" if shapiro_p > 0.05 else "⚠️ 正規性に問題あり"
+            st.write(f"**残差の正規性:** {normality_status} (Shapiro-Wilk p={shapiro_p:.4f})")
+            
+            # 自己相関
+            autocorr_status = "✅ 自己相関なし" if 1.5 <= dw_stat <= 2.5 else "⚠️ 自己相関の可能性"
+            st.write(f"**自己相関:** {autocorr_status} (Durbin-Watson={dw_stat:.3f})")
+            
+            # 等分散性
+            homoscedasticity_status = "✅ 等分散性OK" if bp_p > 0.05 else "⚠️ 不等分散の可能性"
+            st.write(f"**等分散性:** {homoscedasticity_status} (Breusch-Pagan p={bp_p:.4f})")
+            
+            # 詳細な診断プロット
+            st.subheader("📊 診断プロット")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Q-Qプロット（正規性確認）
+                fig_qq = go.Figure()
+                
+                # Q-Qプロットのデータ
+                qq_data = probplot(residuals, dist="norm")
+                theoretical_quantiles = qq_data[0][0]
+                sample_quantiles = qq_data[0][1]
+                
+                # プロット
+                fig_qq.add_trace(go.Scatter(
+                    x=theoretical_quantiles,
+                    y=sample_quantiles,
+                    mode='markers',
+                    name='残差',
+                    marker=dict(color='blue', size=6)
+                ))
+                
+                # 理論直線
+                fig_qq.add_trace(go.Scatter(
+                    x=theoretical_quantiles,
+                    y=qq_data[1][0] * theoretical_quantiles + qq_data[1][1],
+                    mode='lines',
+                    name='理論直線',
+                    line=dict(color='red', dash='dash')
+                ))
+                
+                fig_qq.update_layout(
+                    title="Q-Qプロット（正規性確認）",
+                    xaxis_title="理論分位数",
+                    yaxis_title="標本分位数",
+                    height=400
+                )
+                
+                st.plotly_chart(fig_qq, use_container_width=True)
+                
+            with col2:
+                # Cook距離（外れ値検出）
+                influence = ols_model.get_influence()
+                cooks_d = influence.cooks_distance[0]
+                
+                fig_cook = px.scatter(
+                    x=range(len(cooks_d)),
+                    y=cooks_d,
+                    title="Cook距離（外れ値検出）",
+                    labels={'x': 'サンプル番号', 'y': 'Cook距離'}
+                )
+                
+                # Cook距離の閾値線
+                threshold = 4 / len(X)
+                fig_cook.add_hline(y=threshold, line_dash="dash", line_color="red", 
+                                 annotation_text=f"閾値={threshold:.3f}")
+                
+                fig_cook.update_layout(height=400)
+                st.plotly_chart(fig_cook, use_container_width=True)
+            
+            # 実用的な解釈とアドバイス
+            st.subheader("💡 分析結果の実用的解釈")
+            
+            # 統計的に有意な変数の抽出
+            significant_vars = coef_df[coef_df['p値'] < 0.05]
+            
+            if len(significant_vars) > 0:
+                st.success(f"📈 **統計的に有意な影響要因: {len(significant_vars)}個**")
+                
+                for _, row in significant_vars.head(5).iterrows():
+                    direction = "向上" if row['標準化係数'] > 0 else "低下"
+                    impact_size = "大" if abs(row['標準化係数']) > 0.3 else "中" if abs(row['標準化係数']) > 0.1 else "小"
+                    
+                    st.write(f"- **{row['説明変数']}**: {selected_target}を{direction}させる（影響度: {impact_size}, 係数: {row['標準化係数']:.3f}）")
+                
+                # 改善提案
+                st.subheader("🎯 改善提案")
+                
+                top_positive = significant_vars[significant_vars['標準化係数'] > 0].head(3)
+                top_negative = significant_vars[significant_vars['標準化係数'] < 0].head(3)
+                
+                if len(top_positive) > 0:
+                    st.info("**🚀 重点的に改善すべき領域（正の影響）:**")
+                    for _, row in top_positive.iterrows():
+                        st.write(f"• {row['説明変数']}の向上 → {selected_target}が{abs(row['標準化係数']):.1%}向上期待")
+                
+                if len(top_negative) > 0:
+                    st.warning("**⚠️ 注意が必要な領域（負の影響）:**")
+                    for _, row in top_negative.iterrows():
+                        st.write(f"• {row['説明変数']}の問題 → {selected_target}が{abs(row['標準化係数']):.1%}低下リスク")
+                
+            else:
+                st.warning("統計的に有意な影響要因が見つかりませんでした。サンプルサイズの増加やデータ品質の向上を検討してください。")
             
     except Exception as e:
         st.error(f"分析中にエラーが発生しました: {str(e)}")
