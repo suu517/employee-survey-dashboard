@@ -20,9 +20,13 @@ from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.metrics import r2_score, mean_squared_error
-from statsmodels.stats.outliers_influence import variance_inflation_factor
-from statsmodels.stats.diagnostic import durbin_watson, het_breuschpagan
-import statsmodels.api as sm
+try:
+    from statsmodels.stats.outliers_influence import variance_inflation_factor
+    from statsmodels.stats.diagnostic import durbin_watson, het_breuschpagan
+    import statsmodels.api as sm
+    STATSMODELS_AVAILABLE = True
+except ImportError:
+    STATSMODELS_AVAILABLE = False
 from scipy import stats
 from scipy.stats import probplot
 from wordcloud import WordCloud
@@ -2398,15 +2402,23 @@ def show_regression_analysis(data, kpis):
                 st.metric("RMSE", f"{rmse:.3f}")
             
             # 統計的検定のためのOLS回帰を実行
-            X_with_const = sm.add_constant(X_scaled_df)
-            ols_model = sm.OLS(y, X_with_const).fit()
+            if STATSMODELS_AVAILABLE:
+                X_with_const = sm.add_constant(X_scaled_df)
+                ols_model = sm.OLS(y, X_with_const).fit()
+            else:
+                X_with_const = X_scaled_df
+                ols_model = None
             
             # 回帰係数の表示（統計的有意性を含む）
             coef_data = []
             for i, var in enumerate(X.columns):
                 coef = model.coef_[i]
-                p_value = ols_model.pvalues[var] if var in ols_model.pvalues.index else None
-                conf_int = ols_model.conf_int().loc[var] if var in ols_model.conf_int().index else [None, None]
+                if STATSMODELS_AVAILABLE and ols_model is not None:
+                    p_value = ols_model.pvalues[var] if var in ols_model.pvalues.index else None
+                    conf_int = ols_model.conf_int().loc[var] if var in ols_model.conf_int().index else [None, None]
+                else:
+                    p_value = None
+                    conf_int = [None, None]
                 
                 significance = ""
                 if p_value is not None:
@@ -2456,6 +2468,8 @@ def show_regression_analysis(data, kpis):
             
             # VIF計算
             def calculate_vif(X_df):
+                if not STATSMODELS_AVAILABLE:
+                    return pd.DataFrame({"説明変数": X_df.columns, "VIF": ["利用不可"] * len(X_df.columns)})
                 vif_data = pd.DataFrame()
                 vif_data["説明変数"] = X_df.columns
                 vif_data["VIF"] = [variance_inflation_factor(X_df.values, i) 
@@ -2464,7 +2478,10 @@ def show_regression_analysis(data, kpis):
             
             try:
                 # 定数項を追加してVIF計算
-                X_with_const = sm.add_constant(X_scaled_df)
+                if STATSMODELS_AVAILABLE:
+                    X_with_const = sm.add_constant(X_scaled_df)
+                else:
+                    X_with_const = X_scaled_df
                 vif_df = calculate_vif(X_scaled_df)
                 
                 st.dataframe(vif_df.round(2), use_container_width=True, hide_index=True)
@@ -2653,16 +2670,28 @@ def show_regression_analysis(data, kpis):
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                st.metric("調整済みR²", f"{ols_model.rsquared_adj:.4f}")
-                st.metric("AIC", f"{ols_model.aic:.2f}")
+                if STATSMODELS_AVAILABLE and ols_model is not None:
+                    st.metric("調整済みR²", f"{ols_model.rsquared_adj:.4f}")
+                    st.metric("AIC", f"{ols_model.aic:.2f}")
+                else:
+                    st.metric("調整済みR²", "利用不可")
+                    st.metric("AIC", "利用不可")
                 
             with col2:
-                st.metric("BIC", f"{ols_model.bic:.2f}")
-                st.metric("F統計量", f"{ols_model.fvalue:.2f}")
+                if STATSMODELS_AVAILABLE and ols_model is not None:
+                    st.metric("BIC", f"{ols_model.bic:.2f}")
+                    st.metric("F統計量", f"{ols_model.fvalue:.2f}")
+                else:
+                    st.metric("BIC", "利用不可")
+                    st.metric("F統計量", "利用不可")
                 
             with col3:
-                st.metric("F検定p値", f"{ols_model.f_pvalue:.4f}")
-                st.metric("尤度比", f"{ols_model.llf:.2f}")
+                if STATSMODELS_AVAILABLE and ols_model is not None:
+                    st.metric("F検定p値", f"{ols_model.f_pvalue:.4f}")
+                    st.metric("尤度比", f"{ols_model.llf:.2f}")
+                else:
+                    st.metric("F検定p値", "利用不可")
+                    st.metric("尤度比", "利用不可")
             
             # 回帰分析の前提条件の検証
             st.subheader("🔍 回帰分析の前提条件チェック")
@@ -2671,10 +2700,13 @@ def show_regression_analysis(data, kpis):
             shapiro_stat, shapiro_p = stats.shapiro(residuals)
             
             # Durbin-Watson統計量（自己相関の検定）
-            dw_stat = durbin_watson(residuals)
-            
-            # Breusch-Pagan検定（等分散性の検定）
-            bp_stat, bp_p, bp_f_stat, bp_f_p = het_breuschpagan(residuals, X_with_const)
+            if STATSMODELS_AVAILABLE:
+                dw_stat = durbin_watson(residuals)
+                # Breusch-Pagan検定（等分散性の検定）
+                bp_stat, bp_p, bp_f_stat, bp_f_p = het_breuschpagan(residuals, X_with_const)
+            else:
+                dw_stat = None
+                bp_stat, bp_p, bp_f_stat, bp_f_p = None, None, None, None
             
             # 前提条件チェック結果
             st.markdown("### 📋 診断結果")
@@ -2684,12 +2716,18 @@ def show_regression_analysis(data, kpis):
             st.write(f"**残差の正規性:** {normality_status} (Shapiro-Wilk p={shapiro_p:.4f})")
             
             # 自己相関
-            autocorr_status = "✅ 自己相関なし" if 1.5 <= dw_stat <= 2.5 else "⚠️ 自己相関の可能性"
-            st.write(f"**自己相関:** {autocorr_status} (Durbin-Watson={dw_stat:.3f})")
+            if STATSMODELS_AVAILABLE and dw_stat is not None:
+                autocorr_status = "✅ 自己相関なし" if 1.5 <= dw_stat <= 2.5 else "⚠️ 自己相関の可能性"
+                st.write(f"**自己相関:** {autocorr_status} (Durbin-Watson={dw_stat:.3f})")
+            else:
+                st.write("**自己相関:** ❌ 利用不可 (statsmodels未インストール)")
             
             # 等分散性
-            homoscedasticity_status = "✅ 等分散性OK" if bp_p > 0.05 else "⚠️ 不等分散の可能性"
-            st.write(f"**等分散性:** {homoscedasticity_status} (Breusch-Pagan p={bp_p:.4f})")
+            if STATSMODELS_AVAILABLE and bp_p is not None:
+                homoscedasticity_status = "✅ 等分散性OK" if bp_p > 0.05 else "⚠️ 不等分散の可能性"
+                st.write(f"**等分散性:** {homoscedasticity_status} (Breusch-Pagan p={bp_p:.4f})")
+            else:
+                st.write("**等分散性:** ❌ 利用不可 (statsmodels未インストール)")
             
             # 詳細な診断プロット
             st.subheader("📊 診断プロット")
@@ -2734,8 +2772,11 @@ def show_regression_analysis(data, kpis):
                 
             with col2:
                 # Cook距離（外れ値検出）
-                influence = ols_model.get_influence()
-                cooks_d = influence.cooks_distance[0]
+                if STATSMODELS_AVAILABLE and ols_model is not None:
+                    influence = ols_model.get_influence()
+                    cooks_d = influence.cooks_distance[0]
+                else:
+                    cooks_d = np.zeros(len(residuals))  # Fallback to zeros
                 
                 fig_cook = px.scatter(
                     x=range(len(cooks_d)),
