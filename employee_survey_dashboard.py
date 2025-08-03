@@ -212,50 +212,9 @@ st.markdown("""
 # データ読み込み関数
 @st.cache_data
 def load_employee_data():
-    """従業員調査データを読み込む（実データ対応）"""
-    try:
-        excel_path = '/Users/sugayayoshiyuki/Desktop/採用可視化サーベイ/従業員調査.xlsx'
-        
-        if not os.path.exists(excel_path):
-            st.error("データファイルが見つかりません")
-            return create_dummy_data()
-        
-        # Responsesシートから実データを読み込む（header=1を指定）
-        try:
-            responses_df = pd.read_excel(excel_path, sheet_name='Responses', header=1)
-            
-            if len(responses_df) > 0:
-                st.info(f"✅ 実データを読み込みました: {len(responses_df)}件、{len(responses_df.columns)}列")
-                
-                # カラム名のマッピング
-                column_mapping = {
-                    '総合評価：自分の親しい友人や家族に対して、この会社への転職・就職をどの程度勧めたいと思いますか？': 'recommend_score',
-                    '総合満足度：自社の現在の働く環境や条件、周りの人間関係なども含めあなたはどの程度満足されていますか？': 'overall_satisfaction',
-                    'あなたはこの会社でこれからも長く働きたいと思われますか？': 'long_term_intention',
-                    '活躍貢献度：現在の会社や所属組織であなたはどの程度、活躍貢献できていると感じますか？': 'sense_of_contribution'
-                }
-                
-                # マッピングを適用
-                responses_df = responses_df.rename(columns=column_mapping)
-                
-                # 数値データの抽出と変換
-                for col in ['recommend_score', 'overall_satisfaction', 'long_term_intention', 'sense_of_contribution']:
-                    if col in responses_df.columns:
-                        # 数値部分を抽出して数値に変換
-                        extracted = responses_df[col].astype(str).str.extract(r'(\d+)', expand=False)
-                        responses_df[col] = pd.to_numeric(extracted, errors='coerce')
-                
-                return {'employee_data': responses_df}
-                
-        except Exception as e:
-            st.error(f"Responsesシートの読み込みエラー: {e}")
-        
-        # 実データの処理に失敗した場合はダミーデータを返す
-        return create_dummy_data()
-        
-    except Exception as e:
-        st.error(f"データ読み込みエラー: {e}")
-        return create_dummy_data()
+    """従業員調査データを読み込む（デモ用ダミーデータ）"""
+    st.info("📊 デモ用のサンプルデータを使用しています")
+    return create_dummy_data()
 
 def load_comment_data():
     """コメントデータを読み込み・処理する"""
