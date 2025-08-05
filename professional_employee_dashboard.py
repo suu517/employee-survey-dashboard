@@ -13,6 +13,14 @@ from datetime import datetime
 import os
 import re
 
+# 日本語フォント設定
+try:
+    import japanize_matplotlib
+except ImportError:
+    # japanize_matplotlibがない場合はmatplotlibで日本語フォントを設定
+    import matplotlib.pyplot as plt
+    plt.rcParams['font.family'] = 'DejaVu Sans'
+
 # ページ設定
 st.set_page_config(
     page_title="Employee Survey Dashboard",
@@ -674,14 +682,14 @@ def show_professional_kpi_overview(data, kpis):
     # メインヘッダー
     st.markdown("""
     <div class="main-header">
-        <h1>Employee Survey Dashboard</h1>
-        <p>Comprehensive analysis of employee satisfaction and engagement metrics</p>
+        <h1>従業員調査ダッシュボード</h1>
+        <p>従業員満足度とエンゲージメント指標の包括的分析</p>
     </div>
     """, unsafe_allow_html=True)
     
     # データソース表示
-    data_source = kpis.get('data_source', "Demo Data")
-    st.markdown(f"**Data Source:** {data_source} | **Sample Size:** {kpis['total_employees']} employees")
+    data_source = kpis.get('data_source', "デモデータ")
+    st.markdown(f"**データソース:** {data_source} | **サンプルサイズ:** {kpis['total_employees']}人")
     
     # KPIカード
     col1, col2, col3, col4 = st.columns(4)
@@ -690,9 +698,9 @@ def show_professional_kpi_overview(data, kpis):
         nps_class = get_kpi_color_class(kpis['nps'], {'good': 10, 'bad': -10})
         st.markdown(f"""
         <div class="kpi-card {nps_class}">
-            <div class="kpi-title">Employee NPS</div>
+            <div class="kpi-title">従業員NPS</div>
             <div class="kpi-value">{kpis['nps']:.1f}</div>
-            <div class="kpi-description">Net Promoter Score</div>
+            <div class="kpi-description">推奨度スコア</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -700,9 +708,9 @@ def show_professional_kpi_overview(data, kpis):
         satisfaction_class = get_kpi_color_class(kpis['avg_satisfaction'], {'good': 4.0, 'bad': 2.5})
         st.markdown(f"""
         <div class="kpi-card {satisfaction_class}">
-            <div class="kpi-title">Overall Satisfaction</div>
+            <div class="kpi-title">総合満足度</div>
             <div class="kpi-value">{kpis['avg_satisfaction']:.2f}/5</div>
-            <div class="kpi-description">Average satisfaction score</div>
+            <div class="kpi-description">平均満足度スコア</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -710,9 +718,9 @@ def show_professional_kpi_overview(data, kpis):
         contribution_class = get_kpi_color_class(kpis['avg_contribution'], {'good': 4.0, 'bad': 2.5})
         st.markdown(f"""
         <div class="kpi-card {contribution_class}">
-            <div class="kpi-title">Contribution Level</div>
+            <div class="kpi-title">活躍貢献度</div>
             <div class="kpi-value">{kpis['avg_contribution']:.2f}/5</div>
-            <div class="kpi-description">Self-assessed performance</div>
+            <div class="kpi-description">自己評価パフォーマンス</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -720,22 +728,22 @@ def show_professional_kpi_overview(data, kpis):
         retention_class = get_kpi_color_class(kpis['avg_long_term_intention'], {'good': 4.0, 'bad': 2.5})
         st.markdown(f"""
         <div class="kpi-card {retention_class}">
-            <div class="kpi-title">Retention Intent</div>
+            <div class="kpi-title">勤続意向</div>
             <div class="kpi-value">{kpis['avg_long_term_intention']:.2f}/5</div>
-            <div class="kpi-description">Long-term commitment</div>
+            <div class="kpi-description">長期コミットメント</div>
         </div>
         """, unsafe_allow_html=True)
     
     # セカンダリメトリクス
-    st.markdown("### Key Metrics")
+    st.markdown("### 📊 主要指標")
     
     col1, col2, col3, col4 = st.columns(4)
     
     metrics = [
-        ("Average Salary", f"¥{kpis['avg_salary']:.0f}万", f"Median: ¥{kpis['median_salary']:.0f}万"),
-        ("Overtime Hours", f"{kpis['avg_overtime']:.1f}h", "Monthly average"),
-        ("Leave Usage", f"{kpis['avg_leave_usage']:.1f}%", "Annual vacation usage"),
-        ("Avg Tenure", f"{kpis['avg_work_years']:.1f}年", "Years of service")
+        ("平均年収", f"¥{kpis['avg_salary']:.0f}万", f"中央値: ¥{kpis['median_salary']:.0f}万"),
+        ("残業時間", f"{kpis['avg_overtime']:.1f}時間", "月平均"),
+        ("有給取得率", f"{kpis['avg_leave_usage']:.1f}%", "年間休暇利用率"),
+        ("平均勤続年数", f"{kpis['avg_work_years']:.1f}年", "勤続年数")
     ]
     
     for i, (title, value, desc) in enumerate(metrics):
@@ -768,7 +776,7 @@ def show_professional_category_analysis(data, kpis):
             r=satisfaction_values,
             theta=categories,
             fill='toself',
-            name='Satisfaction',
+            name='満足度',
             line=dict(color='#3b82f6', width=3),
             fillcolor='rgba(59, 130, 246, 0.1)'
         ))
@@ -777,7 +785,7 @@ def show_professional_category_analysis(data, kpis):
             r=expectation_values,
             theta=categories,
             fill='toself',
-            name='Expectation',
+            name='期待度',
             line=dict(color='#ef4444', width=3),
             fillcolor='rgba(239, 68, 68, 0.1)'
         ))
@@ -796,7 +804,7 @@ def show_professional_category_analysis(data, kpis):
                 bgcolor='rgba(255, 255, 255, 0)'
             ),
             title=dict(
-                text="Satisfaction vs Expectation by Category",
+                text="カテゴリ別満足度 vs 期待度",
                 font=dict(size=16, color='#1e293b')
             ),
             height=500,
@@ -819,19 +827,19 @@ def show_professional_category_analysis(data, kpis):
         
         # カテゴリランキング
         category_df = pd.DataFrame({
-            'Category': categories,
-            'Satisfaction': satisfaction_values,
-            'Expectation': expectation_values,
-            'Gap': [kpis['category_stats'][cat]['gap'] for cat in categories]
-        }).sort_values('Satisfaction', ascending=True)
+            'カテゴリ': categories,
+            '満足度': satisfaction_values,
+            '期待度': expectation_values,
+            'ギャップ': [kpis['category_stats'][cat]['gap'] for cat in categories]
+        }).sort_values('満足度', ascending=True)
         
         fig = px.bar(
             category_df,
-            x='Satisfaction',
-            y='Category',
+            x='満足度',
+            y='カテゴリ',
             orientation='h',
-            title='Category Satisfaction Ranking',
-            color='Satisfaction',
+            title='カテゴリ別満足度ランキング',
+            color='満足度',
             color_continuous_scale='RdYlGn',
             range_color=[1, 5]
         )
@@ -847,7 +855,7 @@ def show_professional_category_analysis(data, kpis):
         st.markdown('</div>', unsafe_allow_html=True)
         
         # カテゴリ詳細テーブル
-        st.markdown("#### Category Details")
+        st.markdown("#### カテゴリ詳細")
         category_display = category_df.round(2)
         st.dataframe(category_display, use_container_width=True, hide_index=True)
     
@@ -856,20 +864,20 @@ def show_professional_category_analysis(data, kpis):
         
         # ギャップ分析
         gap_df = pd.DataFrame({
-            'Category': categories,
-            'Satisfaction': satisfaction_values,
-            'Expectation': expectation_values,
-            'Gap': [kpis['category_stats'][cat]['gap'] for cat in categories]
+            'カテゴリ': categories,
+            '満足度': satisfaction_values,
+            '期待度': expectation_values,
+            'ギャップ': [kpis['category_stats'][cat]['gap'] for cat in categories]
         })
         
         fig = px.scatter(
             gap_df,
-            x='Satisfaction',
-            y='Expectation',
-            size=np.abs(gap_df['Gap']) + 0.1,
-            color='Gap',
-            hover_name='Category',
-            title='Expectation vs Satisfaction Gap Analysis',
+            x='満足度',
+            y='期待度',
+            size=np.abs(gap_df['ギャップ']) + 0.1,
+            color='ギャップ',
+            hover_name='カテゴリ',
+            title='期待度 vs 満足度 ギャップ分析',
             color_continuous_scale='RdYlGn',
             range_x=[1, 5],
             range_y=[1, 5]
@@ -893,11 +901,11 @@ def show_professional_category_analysis(data, kpis):
 
 def show_professional_detailed_analysis(data, kpis):
     """詳細分析表示"""
-    st.markdown('<div class="section-header"><h2>Detailed Item Analysis</h2></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h2>🏢 詳細項目分析</h2></div>', unsafe_allow_html=True)
     
     # カテゴリ選択
     selected_category = st.selectbox(
-        "Select category for detailed analysis:",
+        "📊 詳細分析するカテゴリを選択してください:",
         list(SURVEY_CATEGORIES.keys()),
         index=0
     )
