@@ -977,7 +977,7 @@ def show_professional_category_analysis(data, kpis):
         st.dataframe(display_df, use_container_width=True, hide_index=True)
     
     with tab3:
-        # ギャップ分析
+        # ギャップ分析（4象限マトリックス）
         if 'category_stats' in kpis:
             expectation_values = [kpis['category_stats'][cat]['expectation'] for cat in categories]
             gap_values = [kpis['category_stats'][cat]['gap'] for cat in categories]
@@ -989,53 +989,106 @@ def show_professional_category_analysis(data, kpis):
                 'ギャップ': gap_values
             })
             
+            # 4象限マトリックス分析
+            st.subheader("📊 期待度 vs 満足度 マトリックス分析")
+            
+            # 中央値を基準とした4象限
+            satisfaction_median = np.median(satisfaction_values)
+            expectation_median = np.median(expectation_values)
+            
+            # 4象限の分類
+            def classify_quadrant(satisfaction, expectation, sat_med, exp_med):
+                if satisfaction >= sat_med and expectation >= exp_med:
+                    return "🔥 重点改善領域\n(高期待・高満足)"
+                elif satisfaction < sat_med and expectation >= exp_med:
+                    return "⚠️ 最優先改善領域\n(高期待・低満足)"
+                elif satisfaction >= sat_med and expectation < exp_med:
+                    return "✅ 維持領域\n(低期待・高満足)"
+                else:
+                    return "💤 低優先度領域\n(低期待・低満足)"
+            
+            gap_df['象限'] = gap_df.apply(
+                lambda row: classify_quadrant(row['満足度'], row['期待度'], satisfaction_median, expectation_median), 
+                axis=1
+            )
+            
+            # 4象限散布図
+            fig = px.scatter(
+                gap_df,
+                x='満足度',
+                y='期待度',
+                size=np.abs(gap_df['ギャップ']) + 0.1,
+                color='象限',
+                hover_name='カテゴリ',
+                title='期待度 vs 満足度 4象限マトリックス',
+                range_x=[1, 5],
+                range_y=[1, 5],
+                color_discrete_map={
+                    '⚠️ 最優先改善領域\n(高期待・低満足)': '#ef4444',
+                    '🔥 重点改善領域\n(高期待・高満足)': '#f59e0b', 
+                    '💤 低優先度領域\n(低期待・低満足)': '#94a3b8',
+                    '✅ 維持領域\n(低期待・高満足)': '#22c55e'
+                }
+            )
+            
+            # 中央線を追加
+            fig.add_hline(y=expectation_median, line_dash="dash", line_color="gray", opacity=0.7)
+            fig.add_vline(x=satisfaction_median, line_dash="dash", line_color="gray", opacity=0.7)
+            
+            # 対角線追加
+            fig.add_shape(
+                type="line", x0=1, y0=1, x1=5, y1=5,
+                line=dict(color="lightgray", width=1, dash="dot"),
+            )
+            
+            # 象限ラベルを追加
+            fig.add_annotation(x=satisfaction_median + 0.8, y=expectation_median + 0.8, 
+                             text="🔥重点改善", showarrow=False, font=dict(size=12, color="orange"))
+            fig.add_annotation(x=satisfaction_median - 0.8, y=expectation_median + 0.8,
+                             text="⚠️最優先改善", showarrow=False, font=dict(size=12, color="red"))
+            fig.add_annotation(x=satisfaction_median + 0.8, y=expectation_median - 0.8,
+                             text="✅維持", showarrow=False, font=dict(size=12, color="green"))
+            fig.add_annotation(x=satisfaction_median - 0.8, y=expectation_median - 0.8,
+                             text="💤低優先度", showarrow=False, font=dict(size=12, color="gray"))
+            
+            fig.update_layout(
+                height=600,
+                xaxis_title="満足度 (1-5点)",
+                yaxis_title="期待度 (1-5点)"
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # 象限別分析
             col1, col2 = st.columns(2)
             
             with col1:
-                # 散布図
-                fig = px.scatter(
-                    gap_df,
-                    x='満足度',
-                    y='期待度',
-                    size=np.abs(gap_df['ギャップ']) + 0.1,
-                    color='ギャップ',
-                    hover_name='カテゴリ',
-                    title='期待度 vs 満足度 ギャップ分析',
-                    color_continuous_scale='RdYlGn',
-                    range_x=[1, 5],
-                    range_y=[1, 5]
-                )
+                st.subheader("📋 象限別カテゴリ分類")
+                quadrant_summary = gap_df.groupby('象限')['カテゴリ'].apply(list).to_dict()
                 
-                # 対角線追加
-                fig.add_shape(
-                    type="line", x0=1, y0=1, x1=5, y1=5,
-                    line=dict(color="gray", width=2, dash="dash"),
-                )
-                
-                fig.update_layout(height=400)
-                st.plotly_chart(fig, use_container_width=True)
+                for quadrant, categories_list in quadrant_summary.items():
+                    with st.expander(f"{quadrant} ({len(categories_list)}項目)"):
+                        for cat in categories_list:
+                            cat_data = gap_df[gap_df['カテゴリ'] == cat].iloc[0]
+                            st.write(f"• **{cat}** (満足度: {cat_data['満足度']:.2f}, 期待度: {cat_data['期待度']:.2f})")
             
             with col2:
-                # ギャップバーチャート
-                gap_sorted = gap_df.sort_values('ギャップ', ascending=True)
+                st.subheader("🎯 改善優先度ランキング")
                 
-                fig = px.bar(
-                    gap_sorted,
-                    x='ギャップ',
-                    y='カテゴリ',
-                    orientation='h',
-                    title='期待度-満足度ギャップ',
-                    color='ギャップ',
-                    color_continuous_scale='RdYlGn_r'
-                )
+                # 改善優先度の計算（期待度が高く満足度が低いものほど優先度高）
+                gap_df['改善優先度'] = gap_df['期待度'] - gap_df['満足度']
+                priority_df = gap_df.sort_values('改善優先度', ascending=False)
                 
-                fig.update_layout(height=400)
-                st.plotly_chart(fig, use_container_width=True)
+                for i, (_, row) in enumerate(priority_df.head(5).iterrows(), 1):
+                    priority_emoji = "🔴" if i <= 2 else "🟡" if i <= 4 else "🟢"
+                    st.write(f"{priority_emoji} **{i}. {row['カテゴリ']}**")
+                    st.write(f"   期待度: {row['期待度']:.2f} | 満足度: {row['満足度']:.2f} | ギャップ: {row['改善優先度']:.2f}")
             
-            # ギャップ詳細
-            st.subheader("🎯 ギャップ分析詳細")
-            gap_display = gap_df.sort_values('ギャップ', ascending=True).round(2)
-            st.dataframe(gap_display, use_container_width=True, hide_index=True)
+            # 詳細データテーブル
+            st.subheader("📊 詳細分析データ")
+            display_df = gap_df[['カテゴリ', '満足度', '期待度', 'ギャップ', '象限', '改善優先度']].round(2)
+            display_df = display_df.sort_values('改善優先度', ascending=False)
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 def show_professional_detailed_analysis(data, kpis):
     """詳細分析表示"""
