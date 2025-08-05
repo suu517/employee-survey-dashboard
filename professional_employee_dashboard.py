@@ -321,12 +321,20 @@ COLUMN_MAPPING = {
 def load_real_excel_data():
     """新しいExcelファイル構造に対応したデータ読み込み"""
     try:
-        excel_path = '/Users/sugayayoshiyuki/Desktop/採用可視化サーベイ/従業員調査.xlsx'
+        # Streamlit Cloud対応: プロジェクト内のdata.xlsxを優先
+        excel_paths = [
+            'data.xlsx',  # Streamlit Cloud用
+            '/Users/sugayayoshiyuki/Desktop/採用可視化サーベイ/従業員調査.xlsx'  # ローカル用
+        ]
         
-        if not os.path.exists(excel_path):
-            st.error(f"❌ Excelファイルが見つかりません: {excel_path}")
-            st.warning("⚠️ フォールバック: デモ用ダミーデータを使用します")
-            st.info("📁 正しいExcelファイルを配置してページを再読み込みしてください")
+        excel_path = None
+        for path in excel_paths:
+            if os.path.exists(path):
+                excel_path = path
+                break
+        
+        if excel_path is None:
+            st.info("📊 実データファイルが見つからないため、デモ用サンプルデータを使用しています")
             return create_professional_dummy_data(), False
         
         # Excelファイルを読み込む
@@ -347,6 +355,28 @@ def load_real_excel_data():
             
             # 基本カラムの正規化
             df = df.rename(columns=COLUMN_MAPPING)
+            
+            # 実際のカラム名を使用したマッピング
+            actual_column_mapping = {
+                '総合評価：自分の親しい友人や家族に対して、この会社への転職・就職をどの程度勧めたいと思いますか？': 'recommend_score',
+                '総合満足度：自社の現在の働く環境や条件、周りの人間関係なども含めあなたはどの程度満足されていますか？': 'overall_satisfaction', 
+                'あなたはこの会社でこれからも長く働きたいと思われますか？': 'long_term_intention',
+                '活躍貢献度：現在の会社や所属組織であなたはどの程度、活躍貢献できていると感じますか？': 'sense_of_contribution',
+                '入社年度を教えてください。※2019年入社の場合には、2019とお答えください。': 'start_year',
+                '概算年収を教えてください。450万円の場合には、450と半角でお答えください。': 'annual_salary',
+                '1ヶ月当たりの平均残業時間を教えてください。（残業時間が月100時間ほどある方は100とお答えください）': 'avg_monthly_overtime',
+                '1年間当たりの平均有給休暇取得率を教えてください。（全て利用されていれば100、80%ほど利用されていれば80とお答えください。）': 'paid_leave_usage_rate',
+                '雇用形態': 'employment_type',
+                '所属事業部': 'department',
+                '役職': 'position',
+                '職種': 'job_type',
+                '最も期待が高い項目についてあなたが期待していると回答した項目の中で最もこの会社に期待していることについて、具体的にご記載ください。どのような内容が満たせるとあなたの期待を大きく上回ることができるのか教えていただける幸いです。': 'expectation_comments',
+                '最も満足度が高い項目についてあなたが今の会社に満足していると回答した項目の中で最もこの会社に満足・評価している内容について、具体的に教えていただけますと幸いです。': 'satisfaction_comments',
+                '満足度が低い項目についてあなたが今の会社に満足していないと回答した項目の中で、具体的に自社のどのような点に対してそのように感じられたのか教えていただけますと幸いです。': 'dissatisfaction_comments'
+            }
+            
+            # カラム名を正規化
+            df = df.rename(columns=actual_column_mapping)
             
             # 数値データの抽出と変換
             numeric_columns = ['recommend_score', 'overall_satisfaction', 'long_term_intention', 'sense_of_contribution',
@@ -487,6 +517,64 @@ def create_professional_dummy_data():
         # 期待度（満足度より若干高め）
         expectation_scores = (satisfaction_scores + np.random.normal(0.3, 0.5, n_employees)).clip(1, 5).round().astype(int)
         data[f'{item}_expectation'] = expectation_scores
+    
+    # テキストマイニング用のサンプルコメントを追加
+    positive_comments = [
+        '職場の人間関係が良好で働きやすい環境です',
+        'リモートワークが導入されてワークライフバランスが改善されました',
+        '上司からのサポートが充実していて成長できる環境です',
+        '福利厚生が充実していて安心して働けます',
+        '挑戦的なプロジェクトに参加できて成長実感があります',
+        '社内研修制度が整っていてスキルアップできます',
+        'フレックス制度があり自分のペースで仕事ができます',
+        '評価制度が透明で公正な評価を受けられます'
+    ]
+    
+    negative_comments = [
+        '残業時間が多くワークライフバランスが取りにくい',
+        '昇進・昇格の基準が不透明で将来が見えにくい',
+        '業務量が多すぎて精神的な負担が大きい',
+        '有給休暇が取りにくい職場環境です',
+        'コミュニケーション不足で情報共有が不十分',
+        '給与水準が他社と比べて低いと感じます',
+        '教育体制が不十分でスキルアップが困難',
+        '職場の設備が古く作業効率が悪い'
+    ]
+    
+    neutral_comments = [
+        '全体的には普通の職場だと思います',
+        '良い面と悪い面が両方あります',
+        '可もなく不可もない職場環境です',
+        '改善の余地はありますが悪くはありません'
+    ]
+    
+    # 満足度に応じてコメントを分配
+    comments = []
+    expectation_detail_comments = []
+    
+    for i in range(n_employees):
+        satisfaction = data.loc[i, 'overall_satisfaction']
+        
+        if satisfaction >= 4:
+            comment = np.random.choice(positive_comments)
+            exp_comment = 'さらなる成長機会とキャリア開発支援を期待しています'
+        elif satisfaction <= 2:
+            comment = np.random.choice(negative_comments)
+            exp_comment = 'ワークライフバランスの改善と労働環境の整備を強く希望します'
+        else:
+            comment = np.random.choice(neutral_comments)
+            exp_comment = '職場環境の改善と業務効率化を期待しています'
+        
+        comments.append(comment)
+        expectation_detail_comments.append(exp_comment)
+    
+    data['satisfaction_comments'] = comments
+    data['dissatisfaction_comments'] = [c for c in comments if any(neg in c for neg in ['残業', '負担', '不透明', '困難', '不十分', '低い'])]
+    data['expectation_comments'] = expectation_detail_comments
+    
+    # dissatisfaction_commentsが空の場合は、ダミーコメントを追加
+    if len(data['dissatisfaction_comments']) == 0:
+        data.loc[:min(30, len(data)-1), 'dissatisfaction_comments'] = negative_comments[:min(31, len(data))]
     
     return data
 
@@ -908,7 +996,7 @@ def main():
         # ページ選択
         page = st.radio(
             "Navigation",
-            ["Dashboard Overview", "Category Analysis", "Detailed Analysis", "🤖 AI Text Analysis"],
+            ["Dashboard Overview", "Category Analysis", "Detailed Analysis", "Regression Analysis", "Text Mining", "🤖 AI Text Analysis"],
             index=0
         )
         
@@ -959,7 +1047,10 @@ def main():
         show_professional_category_analysis(data, kpis)
     elif page == "Detailed Analysis":
         show_professional_detailed_analysis(data, kpis)
-    
+    elif page == "Regression Analysis":
+        show_professional_regression_analysis(data, kpis)
+    elif page == "Text Mining":
+        show_professional_text_mining(data, kpis)
     elif page == "🤖 AI Text Analysis":
         # AIテキスト分析機能を表示
         try:
@@ -968,6 +1059,238 @@ def main():
         except ImportError as e:
             st.error(f"AIテキスト分析機能の読み込みに失敗しました: {e}")
             st.info("必要なライブラリ（janome, scikit-learn）がインストールされているか確認してください。")
+
+def show_professional_regression_analysis(data, kpis):
+    """重回帰分析を表示"""
+    st.markdown('<div class="section-header"><h2>🔬 Multiple Regression Analysis</h2></div>', unsafe_allow_html=True)
+    st.markdown("主要指標に対する満足度項目の影響力を分析します")
+    
+    # 目的変数の選択
+    target_options = {
+        'eNPS (推奨度)': 'recommend_score',
+        '総合満足度': 'overall_satisfaction', 
+        '勤続意向': 'long_term_intention',
+        '活躍貢献度': 'sense_of_contribution'
+    }
+    
+    selected_target = st.selectbox(
+        "🎯 分析対象（目的変数）を選択してください",
+        list(target_options.keys())
+    )
+    
+    target_col = target_options[selected_target]
+    
+    if target_col not in data.columns:
+        st.error(f"目的変数 '{target_col}' がデータに含まれていません")
+        return
+    
+    try:
+        from sklearn.linear_model import LinearRegression
+        from sklearn.preprocessing import StandardScaler
+        from sklearn.model_selection import train_test_split
+        from sklearn.metrics import r2_score, mean_squared_error
+        import scipy.stats as stats
+        
+        # 説明変数（満足度項目）を準備
+        explanatory_vars = []
+        var_names = []
+        
+        for category, items in SURVEY_CATEGORIES.items():
+            for item_key, item_name in items.items():
+                sat_col = f'{item_key}_satisfaction'
+                if sat_col in data.columns:
+                    explanatory_vars.append(sat_col)
+                    var_names.append(item_name)
+        
+        if len(explanatory_vars) < 2:
+            st.error("分析に必要な説明変数が不足しています")
+            return
+        
+        # データの準備
+        X = data[explanatory_vars].fillna(data[explanatory_vars].mean())
+        y = data[target_col].fillna(data[target_col].mean())
+        
+        # 重回帰分析実行
+        model = LinearRegression()
+        model.fit(X, y)
+        
+        y_pred = model.predict(X)
+        r2 = r2_score(y, y_pred)
+        mse = mean_squared_error(y, y_pred)
+        
+        # 結果表示
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="kpi-card">
+                <h3>📊 モデル性能</h3>
+                <p style="font-size: 1.5rem; font-weight: bold; color: #3b82f6;">
+                    R² = {r2:.3f}
+                </p>
+                <p>決定係数（予測精度）</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div class="kpi-card">
+                <h3>🎯 RMSE</h3>
+                <p style="font-size: 1.5rem; font-weight: bold; color: #10b981;">
+                    {np.sqrt(mse):.3f}
+                </p>
+                <p>平均二乗誤差の平方根</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # 係数の重要度をプロット
+        coefficients = pd.DataFrame({
+            'Variable': var_names,
+            'Coefficient': model.coef_,
+            'Abs_Coefficient': np.abs(model.coef_)
+        }).sort_values('Abs_Coefficient', ascending=True)
+        
+        fig = px.bar(
+            coefficients.tail(15), 
+            x='Coefficient', 
+            y='Variable',
+            orientation='h',
+            title=f"{selected_target}への影響度（回帰係数）",
+            color='Coefficient',
+            color_continuous_scale='RdBu_r'
+        )
+        
+        fig.update_layout(
+            height=600,
+            showlegend=False,
+            template="plotly_white"
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # 詳細統計
+        with st.expander("📋 詳細統計"):
+            results_df = pd.DataFrame({
+                '項目': var_names,
+                '回帰係数': model.coef_.round(4),
+                '絶対値': np.abs(model.coef_).round(4)
+            }).sort_values('絶対値', ascending=False)
+            
+            st.dataframe(results_df, use_container_width=True)
+            
+    except ImportError as e:
+        st.error(f"必要なライブラリが見つかりません: {e}")
+        st.info("scikit-learn, scipy をインストールしてください")
+    except Exception as e:
+        st.error(f"回帰分析中にエラーが発生しました: {e}")
+
+def show_professional_text_mining(data, kpis):
+    """テキストマイニングを表示"""
+    st.markdown('<div class="section-header"><h2>📝 Text Mining Analysis</h2></div>', unsafe_allow_html=True)
+    
+    # テキストデータの確認
+    text_columns = []
+    for col in data.columns:
+        if 'comment' in col.lower() or 'コメント' in str(col):
+            if data[col].notna().sum() > 0:
+                text_columns.append(col)
+    
+    if not text_columns:
+        st.warning("テキストデータが見つかりません")
+        return
+    
+    selected_text_col = st.selectbox(
+        "分析するテキスト項目を選択してください",
+        text_columns
+    )
+    
+    try:
+        from collections import Counter
+        import re
+        
+        # テキストデータの前処理
+        text_data = data[selected_text_col].dropna()
+        
+        if len(text_data) == 0:
+            st.warning("選択された項目にテキストデータがありません")
+            return
+        
+        # 簡単な日本語キーワード抽出
+        all_text = ' '.join(text_data.astype(str))
+        
+        # 日本語の単語を抽出（ひらがな、カタカナ、漢字）
+        japanese_pattern = r'[ぁ-んァ-ヶー一-龯]+'
+        words = re.findall(japanese_pattern, all_text)
+        
+        # 短すぎる単語を除外
+        words = [word for word in words if len(word) >= 2]
+        
+        # 頻出単語をカウント
+        word_freq = Counter(words)
+        
+        if len(word_freq) == 0:
+            st.warning("キーワードが抽出されませんでした")
+            return
+        
+        # 結果表示
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("🔤 頻出キーワード Top 20")
+            top_words = word_freq.most_common(20)
+            
+            if top_words:
+                words_df = pd.DataFrame(top_words, columns=['単語', '出現回数'])
+                st.dataframe(words_df, use_container_width=True)
+            else:
+                st.info("抽出されたキーワードがありません")
+        
+        with col2:
+            st.subheader("📊 キーワード出現頻度")
+            if top_words:
+                words_df = pd.DataFrame(top_words[:10], columns=['単語', '出現回数'])
+                
+                fig = px.bar(
+                    words_df, 
+                    x='出現回数', 
+                    y='単語',
+                    orientation='h',
+                    title="Top 10 キーワード",
+                    color='出現回数',
+                    color_continuous_scale='Blues'
+                )
+                
+                fig.update_layout(
+                    height=400,
+                    template="plotly_white",
+                    yaxis={'categoryorder': 'total ascending'}
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+        
+        # テキスト統計
+        st.subheader("📈 テキスト統計")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("総コメント数", len(text_data))
+        
+        with col2:
+            avg_length = text_data.str.len().mean()
+            st.metric("平均文字数", f"{avg_length:.1f}")
+        
+        with col3:
+            st.metric("ユニークキーワード数", len(word_freq))
+        
+        # サンプルコメント
+        with st.expander("💬 サンプルコメント"):
+            sample_comments = text_data.sample(min(5, len(text_data)))
+            for i, comment in enumerate(sample_comments, 1):
+                st.write(f"**{i}.** {comment}")
+                
+    except Exception as e:
+        st.error(f"テキスト分析中にエラーが発生しました: {e}")
+        st.info("テキストデータの形式を確認してください")
 
 if __name__ == "__main__":
     main()
