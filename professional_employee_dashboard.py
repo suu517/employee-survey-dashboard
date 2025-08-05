@@ -247,7 +247,7 @@ st.markdown("""
 
 # 実際のアンケート項目定義
 SURVEY_CATEGORIES = {
-    "Work Environment": {
+    "勤務環境": {
         "work_hours": "自分に合った勤務時間で働ける",
         "holidays": "休日休暇がちゃんと取れる", 
         "paid_leave": "有給休暇がちゃんと取れる",
@@ -256,19 +256,19 @@ SURVEY_CATEGORIES = {
         "job_transfer": "自身の希望が十分に考慮されるような転勤体制",
         "internal_mobility": "自身の希望が十分に考慮されるような社内異動体制"
     },
-    "Compensation & Recognition": {
+    "待遇・評価": {
         "overtime_pay": "残業したらその分しっかり給与が支払われる",
         "fair_evaluation": "自身の行った仕事が正当に評価される",
         "promotion": "成果に応じて早期の昇給・昇格が望める",
         "benefits": "充実した福利厚生"
     },
-    "Workload & Stress": {
+    "業務量・ストレス": {
         "workload": "自分のキャパシティーに合った量の仕事で働ける",
         "physical_load": "仕事内容や量に対する身体的な負荷が少ない",
         "mental_load": "仕事内容や量に対する精神的な負荷が少ない",
         "achievable_goals": "達成可能性が見込まれる目標やノルマ"
     },
-    "Growth & Development": {
+    "成長・能力開発": {
         "specialized_skills": "専門的なスキルや技術・知識や経験の獲得",
         "general_skills": "汎用的なスキル（コミュニケーション能力や論理的思考力など）の獲得",
         "training": "整った教育体制",
@@ -276,7 +276,7 @@ SURVEY_CATEGORIES = {
         "career_match": "将来自分のなりたい方向性とマッチした仕事",
         "role_models": "身近にロールモデルとなるような人がいる環境"
     },
-    "Job Satisfaction": {
+    "仕事のやりがい": {
         "pride_in_work": "誇りやプライドを持てるような仕事内容",
         "social_contribution": "社会に対して貢献実感を持てるような仕事",
         "job_fulfillment": "やりがいを感じられるような仕事",
@@ -286,7 +286,7 @@ SURVEY_CATEGORIES = {
         "impactful_work": "規模の大きなプロジェクトや仕事",
         "use_of_strengths": "自分の強みを活かせるような仕事"
     },
-    "Relationships & Culture": {
+    "人間関係・企業文化": {
         "relationships": "人間関係が良好な環境",
         "harassment_free": "セクハラやパワハラがないような環境",
         "culture_fit": "自身の価値観や考え方と共感できるような会社の社風や文化",
@@ -295,7 +295,7 @@ SURVEY_CATEGORIES = {
         "work_environment": "働きやすい仕事環境やオフィス環境",
         "women_support": "女性が働きやすい環境"
     },
-    "Company & Business": {
+    "会社・事業": {
         "company_stability": "事業基盤の安心感",
         "management_strategy": "信頼できる経営戦略や戦術の実行",
         "competitive_edge": "同業他社と比較した事業内容の競合優位性や独自性",
@@ -750,9 +750,9 @@ def show_professional_kpi_overview(data, kpis):
 
 def show_professional_category_analysis(data, kpis):
     """プロフェッショナルなカテゴリ分析"""
-    st.markdown('<div class="section-header"><h2>Category Analysis</h2></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h2>📈 カテゴリ別分析</h2></div>', unsafe_allow_html=True)
     
-    tab1, tab2, tab3 = st.tabs(["Radar Analysis", "Category Ranking", "Gap Analysis"])
+    tab1, tab2, tab3 = st.tabs(["🔸 レーダー分析", "📈 カテゴリランキング", "🔄 ギャップ分析"])
     
     with tab1:
         st.markdown('<div class="chart-container">', unsafe_allow_html=True)
@@ -903,7 +903,7 @@ def show_professional_detailed_analysis(data, kpis):
     )
     
     if selected_category:
-        st.markdown(f"### {selected_category} - Detailed Analysis")
+        st.markdown(f"### {selected_category} - 詳細分析")
         
         category_items = SURVEY_CATEGORIES[selected_category]
         
@@ -999,39 +999,39 @@ def main():
         # ページ選択
         page = st.radio(
             "Navigation",
-            ["Dashboard Overview", "Category Analysis", "Detailed Analysis", "Regression Analysis", "Text Mining", "🤖 AI Text Analysis"],
+            ["📊 ダッシュボード概要", "📈 カテゴリ別分析", "🏢 詳細分析", "🔬 重回帰分析", "📝 テキストマイニング", "🤖 AIテキスト分析"],
             index=0
         )
         
         st.markdown("---")
         
         # データ情報
-        st.markdown("### Data Information")
+        st.markdown("### 📊 データ情報")
         st.info("""
         このダッシュボードは150件の従業員調査データを自動読み込みし、
         総合的な分析結果を提供します。
         """)
         
         # 統計情報
-        st.markdown("### Survey Metrics")
+        st.markdown("### 📊 調査指標")
         st.markdown("""
-        - **NPS Scale**: 0-10 (Net Promoter Score)
-        - **Satisfaction Scale**: 1-5 (Likert Scale)
-        - **Categories**: 7 main areas
-        - **Total Items**: 55+ survey questions
+        - **推奨度スケール**: 0-10 (Net Promoter Score)
+        - **満足度スケール**: 1-5 (リッカート尺度)
+        - **分析カテゴリ**: 7つの主要領域
+        - **調査項目数**: 55項目以上
         """)
         
         st.markdown("---")
         
         # フィルター（将来の拡張用）
-        st.markdown("### Filters")
-        dept_filter = st.selectbox("Department", ["All Departments", "Sales", "Engineering", "Marketing", "HR", "Finance"])
-        role_filter = st.selectbox("Role Level", ["All Roles", "Junior", "Mid", "Senior", "Manager", "Director"])
+        st.markdown("### 🔍 フィルター")
+        dept_filter = st.selectbox("所属部署", ["全部署", "営業部", "開発部", "マーケティング部", "人事部", "経理部"])
+        role_filter = st.selectbox("役職前り", ["全役職", "ジュニア", "ミドル", "シニア", "マネージャー", "ディレクター"])
         
         st.caption("*フィルター機能は現在開発中です")
     
     # メインコンテンツ
-    with st.spinner("Loading survey data..."):
+    with st.spinner("📊 従業員調査データを読み込み中..."):
         data, is_real_data = load_real_excel_data()
         kpis = calculate_professional_kpis(data, is_real_data)
     
@@ -1044,17 +1044,17 @@ def main():
         st.info("📁 data.xlsx ファイルをプロジェクトルートに配置してください")
     
     # ページ表示
-    if page == "Dashboard Overview":
+    if page == "📊 ダッシュボード概要":
         show_professional_kpi_overview(data, kpis)
-    elif page == "Category Analysis":
+    elif page == "📈 カテゴリ別分析":
         show_professional_category_analysis(data, kpis)
-    elif page == "Detailed Analysis":
+    elif page == "🏢 詳細分析":
         show_professional_detailed_analysis(data, kpis)
-    elif page == "Regression Analysis":
+    elif page == "🔬 重回帰分析":
         show_professional_regression_analysis(data, kpis)
-    elif page == "Text Mining":
+    elif page == "📝 テキストマイニング":
         show_professional_text_mining(data, kpis)
-    elif page == "🤖 AI Text Analysis":
+    elif page == "🤖 AIテキスト分析":
         # AIテキスト分析機能を表示
         try:
             from text_analysis_ml import show_text_analysis_ml_page
@@ -1193,9 +1193,9 @@ def show_professional_regression_analysis(data, kpis):
         with col2:
             st.markdown(f"""
             <div class="kpi-card">
-                <h3>🎯 RMSE</h3>
+                <h3>🎯 予測誤差</h3>
                 <p style="font-size: 1.5rem; font-weight: bold; color: #10b981;">
-                    {np.sqrt(mse):.3f}
+                    RMSE = {np.sqrt(mse):.3f}
                 </p>
                 <p>平均二乗誤差の平方根</p>
             </div>
@@ -1229,7 +1229,8 @@ def show_professional_regression_analysis(data, kpis):
         fig.update_layout(
             height=600,
             showlegend=False,
-            template="plotly_white"
+            template="plotly_white",
+            font=dict(family="Arial, sans-serif")
         )
         
         st.plotly_chart(fig, use_container_width=True)
@@ -1263,7 +1264,7 @@ def show_professional_regression_analysis(data, kpis):
 
 def show_professional_text_mining(data, kpis):
     """テキストマイニングを表示"""
-    st.markdown('<div class="section-header"><h2>📝 Text Mining Analysis</h2></div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"><h2>📝 テキストマイニング分析</h2></div>', unsafe_allow_html=True)
     
     # テキストデータの確認
     text_columns = []
@@ -1331,7 +1332,7 @@ def show_professional_text_mining(data, kpis):
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("🔤 頻出キーワード Top 20")
+            st.subheader("🔤 頻出キーワード トップ20")
             top_words = word_freq.most_common(20)
             
             if top_words:
@@ -1350,7 +1351,7 @@ def show_professional_text_mining(data, kpis):
                     x='出現回数', 
                     y='単語',
                     orientation='h',
-                    title="Top 10 キーワード",
+                    title="トップ10 キーワード",
                     color='出現回数',
                     color_continuous_scale='Blues'
                 )
@@ -1358,7 +1359,8 @@ def show_professional_text_mining(data, kpis):
                 fig.update_layout(
                     height=400,
                     template="plotly_white",
-                    yaxis={'categoryorder': 'total ascending'}
+                    yaxis={'categoryorder': 'total ascending'},
+                    font=dict(family="Arial, sans-serif")
                 )
                 
                 st.plotly_chart(fig, use_container_width=True)

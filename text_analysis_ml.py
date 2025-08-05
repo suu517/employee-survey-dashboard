@@ -514,7 +514,7 @@ def show_text_analysis_ml_page():
     st.markdown("""
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                 color: white; padding: 2rem; border-radius: 12px; margin-bottom: 2rem; text-align: center;">
-        <h2 style="margin: 0; color: white;">📝 テキスト分析 × 機械学習</h2>
+        <h2 style="margin: 0; color: white;">🤖 AIテキスト分析</h2>
         <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">コメント分析による満足度予測モデル</p>
     </div>
     """, unsafe_allow_html=True)
