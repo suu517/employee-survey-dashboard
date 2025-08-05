@@ -1012,17 +1012,33 @@ def show_professional_category_analysis(data, kpis):
                 axis=1
             )
             
-            # 4象限散布図
+            # データの範囲を動的に調整して視認性を向上
+            min_satisfaction = min(satisfaction_values) - 0.2
+            max_satisfaction = max(satisfaction_values) + 0.2
+            min_expectation = min(expectation_values) - 0.2
+            max_expectation = max(expectation_values) + 0.2
+            
+            # データ範囲を1-5の範囲内で調整
+            range_x = [max(1, min_satisfaction), min(5, max_satisfaction)]
+            range_y = [max(1, min_expectation), min(5, max_expectation)]
+            
+            # 4象限散布図（改良版）
             fig = px.scatter(
                 gap_df,
                 x='満足度',
                 y='期待度',
-                size=np.abs(gap_df['ギャップ']) + 0.1,
+                size=np.abs(gap_df['ギャップ']) * 10 + 100,  # サイズを大きく調整
                 color='象限',
                 hover_name='カテゴリ',
+                hover_data={
+                    '満足度': ':.2f',
+                    '期待度': ':.2f', 
+                    'ギャップ': ':.2f',
+                    '象限': False
+                },
                 title='期待度 vs 満足度 4象限マトリックス',
-                range_x=[1, 5],
-                range_y=[1, 5],
+                range_x=range_x,
+                range_y=range_y,
                 color_discrete_map={
                     '⚠️ 最優先改善領域': '#ef4444',
                     '🔥 重点改善領域': '#f59e0b', 
@@ -1031,30 +1047,127 @@ def show_professional_category_analysis(data, kpis):
                 }
             )
             
-            # 中央線を追加
-            fig.add_hline(y=expectation_median, line_dash="dash", line_color="gray", opacity=0.7)
-            fig.add_vline(x=satisfaction_median, line_dash="dash", line_color="gray", opacity=0.7)
-            
-            # 対角線追加
-            fig.add_shape(
-                type="line", x0=1, y0=1, x1=5, y1=5,
-                line=dict(color="lightgray", width=1, dash="dot"),
+            # マーカーのスタイルを改善
+            fig.update_traces(
+                marker=dict(
+                    line=dict(width=2, color='white'),
+                    opacity=0.8
+                ),
+                textposition="middle center"
             )
             
-            # 象限ラベルを追加
-            fig.add_annotation(x=satisfaction_median + 0.8, y=expectation_median + 0.8, 
-                             text="🔥重点改善", showarrow=False, font=dict(size=12, color="orange"))
-            fig.add_annotation(x=satisfaction_median - 0.8, y=expectation_median + 0.8,
-                             text="⚠️最優先改善", showarrow=False, font=dict(size=12, color="red"))
-            fig.add_annotation(x=satisfaction_median + 0.8, y=expectation_median - 0.8,
-                             text="✅維持", showarrow=False, font=dict(size=12, color="green"))
-            fig.add_annotation(x=satisfaction_median - 0.8, y=expectation_median - 0.8,
-                             text="💤低優先度", showarrow=False, font=dict(size=12, color="gray"))
+            # 中央線を追加（より目立つスタイル）
+            fig.add_hline(
+                y=expectation_median, 
+                line=dict(color="rgba(0,0,0,0.6)", width=2, dash="dash"),
+                annotation_text="期待度中央値",
+                annotation_position="left"
+            )
+            fig.add_vline(
+                x=satisfaction_median, 
+                line=dict(color="rgba(0,0,0,0.6)", width=2, dash="dash"),
+                annotation_text="満足度中央値",
+                annotation_position="top"
+            )
+            
+            # 象限の背景色を追加
+            fig.add_shape(
+                type="rect",
+                x0=range_x[0], y0=expectation_median, x1=satisfaction_median, y1=range_y[1],
+                fillcolor="rgba(239, 68, 68, 0.1)", line=dict(width=0)
+            )  # 最優先改善領域
+            
+            fig.add_shape(
+                type="rect",
+                x0=satisfaction_median, y0=expectation_median, x1=range_x[1], y1=range_y[1],
+                fillcolor="rgba(245, 158, 11, 0.1)", line=dict(width=0)
+            )  # 重点改善領域
+            
+            fig.add_shape(
+                type="rect",
+                x0=range_x[0], y0=range_y[0], x1=satisfaction_median, y1=expectation_median,
+                fillcolor="rgba(148, 163, 184, 0.1)", line=dict(width=0)
+            )  # 低優先度領域
+            
+            fig.add_shape(
+                type="rect",
+                x0=satisfaction_median, y0=range_y[0], x1=range_x[1], y1=expectation_median,
+                fillcolor="rgba(34, 197, 94, 0.1)", line=dict(width=0)
+            )  # 維持領域
+            
+            # 象限ラベルを動的位置に配置
+            fig.add_annotation(
+                x=satisfaction_median + (range_x[1] - satisfaction_median) * 0.5,
+                y=expectation_median + (range_y[1] - expectation_median) * 0.8,
+                text="🔥<br>重点改善",
+                showarrow=False,
+                font=dict(size=14, color="orange", family="Arial Black"),
+                bgcolor="rgba(255,255,255,0.8)",
+                bordercolor="orange",
+                borderwidth=1
+            )
+            fig.add_annotation(
+                x=satisfaction_median - (satisfaction_median - range_x[0]) * 0.5,
+                y=expectation_median + (range_y[1] - expectation_median) * 0.8,
+                text="⚠️<br>最優先改善",
+                showarrow=False,
+                font=dict(size=14, color="red", family="Arial Black"),
+                bgcolor="rgba(255,255,255,0.8)",
+                bordercolor="red",
+                borderwidth=1
+            )
+            fig.add_annotation(
+                x=satisfaction_median + (range_x[1] - satisfaction_median) * 0.5,
+                y=expectation_median - (expectation_median - range_y[0]) * 0.8,
+                text="✅<br>維持",
+                showarrow=False,
+                font=dict(size=14, color="green", family="Arial Black"),
+                bgcolor="rgba(255,255,255,0.8)",
+                bordercolor="green",
+                borderwidth=1
+            )
+            fig.add_annotation(
+                x=satisfaction_median - (satisfaction_median - range_x[0]) * 0.5,
+                y=expectation_median - (expectation_median - range_y[0]) * 0.8,
+                text="💤<br>低優先度",
+                showarrow=False,
+                font=dict(size=14, color="gray", family="Arial Black"),
+                bgcolor="rgba(255,255,255,0.8)",
+                bordercolor="gray",
+                borderwidth=1
+            )
+            
+            # カテゴリ名をデータポイントに表示
+            for i, row in gap_df.iterrows():
+                fig.add_annotation(
+                    x=row['満足度'],
+                    y=row['期待度'],
+                    text=row['カテゴリ'][:6] + "..." if len(row['カテゴリ']) > 6 else row['カテゴリ'],
+                    showarrow=False,
+                    font=dict(size=9, color="black", family="Arial"),
+                    bgcolor="rgba(255,255,255,0.7)",
+                    bordercolor="rgba(0,0,0,0.3)",
+                    borderwidth=1,
+                    yshift=20
+                )
             
             fig.update_layout(
-                height=600,
+                height=700,
                 xaxis_title="満足度 (1-5点)",
-                yaxis_title="期待度 (1-5点)"
+                yaxis_title="期待度 (1-5点)",
+                plot_bgcolor='white',
+                font=dict(size=12),
+                showlegend=True,
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=-0.2,
+                    xanchor="center",
+                    x=0.5,
+                    bgcolor="rgba(255,255,255,0.8)",
+                    bordercolor="rgba(0,0,0,0.3)",
+                    borderwidth=1
+                )
             )
             
             st.plotly_chart(fig, use_container_width=True)
