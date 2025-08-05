@@ -1095,28 +1095,83 @@ def show_professional_regression_analysis(data, kpis):
         explanatory_vars = []
         var_names = []
         
-        for category, items in SURVEY_CATEGORIES.items():
-            for item_key, item_name in items.items():
-                sat_col = f'{item_key}_satisfaction'
-                if sat_col in data.columns:
-                    explanatory_vars.append(sat_col)
-                    var_names.append(item_name)
+        # 実データの満足度項目を検索
+        satisfaction_patterns = [
+            '自分に合った勤務時間で働ける',
+            '休日休暇がちゃんと取れる', 
+            '有給休暇がちゃんと取れる',
+            '柔軟な勤務体系',
+            '人間関係が良好な',
+            '仕事内容や量に対する精神的な負荷',
+            '充実した福利厚生',
+            '自身の行った仕事が正当に評価される',
+            '成果に応じて早期の昇給・昇格'
+        ]
+        
+        for col in data.columns:
+            col_str = str(col)
+            # 満足度項目を検索（「満足している」を含むカラム）
+            if any(pattern in col_str for pattern in satisfaction_patterns) and '満足している' in col_str:
+                explanatory_vars.append(col)
+                # 簡潔な名前を抽出
+                short_name = col_str.split('（')[0].replace('満足している', '').replace('について', '')
+                var_names.append(short_name[:20])  # 20文字まで
+        
+        # ダミーデータの場合は従来の方法を使用
+        if len(explanatory_vars) == 0 and hasattr(data, 'columns') and any('_satisfaction' in str(col) for col in data.columns):
+            for category, items in SURVEY_CATEGORIES.items():
+                for item_key, item_name in items.items():
+                    sat_col = f'{item_key}_satisfaction'
+                    if sat_col in data.columns:
+                        explanatory_vars.append(sat_col)
+                        var_names.append(item_name)
         
         if len(explanatory_vars) < 2:
             st.error("分析に必要な説明変数が不足しています")
             return
         
         # データの準備
-        X = data[explanatory_vars].fillna(data[explanatory_vars].mean())
-        y = data[target_col].fillna(data[target_col].mean())
+        try:
+            X = data[explanatory_vars]
+            y = data[target_col]
+            
+            st.info(f"分析対象: {len(explanatory_vars)}個の説明変数、{len(data)}件のデータ")
+            
+        except KeyError as e:
+            st.error(f"必要なカラムが見つかりません: {e}")
+            st.info("利用可能なカラム:")
+            st.write(list(data.columns))
+            return
         
+        # データの数値化とクリーニング
+        X_clean = X.copy()
+        y_clean = y.copy()
+        
+        # 数値化
+        for col in X_clean.columns:
+            X_clean[col] = pd.to_numeric(X_clean[col], errors='coerce')
+        y_clean = pd.to_numeric(y_clean, errors='coerce')
+        
+        # 欠損値処理
+        X_clean = X_clean.fillna(X_clean.mean())
+        y_clean = y_clean.fillna(y_clean.mean())
+        
+        # 無効なデータを除外
+        valid_mask = ~(X_clean.isna().any(axis=1) | y_clean.isna())
+        X_final = X_clean[valid_mask]
+        y_final = y_clean[valid_mask]
+        
+        if len(X_final) < 10:
+            st.error(f"有効なデータが不足です（{len(X_final)}件）。分析には最低10件が必要です。")
+            return
+            
         # 重回帰分析実行
         model = LinearRegression()
-        model.fit(X, y)
+        model.fit(X_final, y_final)
         
-        y_pred = model.predict(X)
-        r2 = r2_score(y, y_pred)
-        mse = mean_squared_error(y, y_pred)
+        y_pred = model.predict(X_final)
+        r2 = r2_score(y_final, y_pred)
+        mse = mean_squared_error(y_final, y_pred)
         
         # 結果表示
         col1, col2 = st.columns(2)
@@ -1144,11 +1199,19 @@ def show_professional_regression_analysis(data, kpis):
             """, unsafe_allow_html=True)
         
         # 係数の重要度をプロット
-        coefficients = pd.DataFrame({
-            'Variable': var_names,
-            'Coefficient': model.coef_,
-            'Abs_Coefficient': np.abs(model.coef_)
-        }).sort_values('Abs_Coefficient', ascending=True)
+        if len(var_names) == len(model.coef_):
+            coefficients = pd.DataFrame({
+                'Variable': var_names,
+                'Coefficient': model.coef_,
+                'Abs_Coefficient': np.abs(model.coef_)
+            }).sort_values('Abs_Coefficient', ascending=True)
+        else:
+            # フォールバック: カラム名を使用
+            coefficients = pd.DataFrame({
+                'Variable': [f'Var_{i}' for i in range(len(model.coef_))],
+                'Coefficient': model.coef_,
+                'Abs_Coefficient': np.abs(model.coef_)
+            }).sort_values('Abs_Coefficient', ascending=True)
         
         fig = px.bar(
             coefficients.tail(15), 
@@ -1170,13 +1233,24 @@ def show_professional_regression_analysis(data, kpis):
         
         # 詳細統計
         with st.expander("📋 詳細統計"):
-            results_df = pd.DataFrame({
-                '項目': var_names,
-                '回帰係数': model.coef_.round(4),
-                '絶対値': np.abs(model.coef_).round(4)
-            }).sort_values('絶対値', ascending=False)
+            if len(var_names) == len(model.coef_):
+                results_df = pd.DataFrame({
+                    '項目': var_names,
+                    '回帰係数': model.coef_.round(4),
+                    '絶対値': np.abs(model.coef_).round(4)
+                }).sort_values('絶対値', ascending=False)
+            else:
+                results_df = pd.DataFrame({
+                    '項目': [f'Variable_{i}' for i in range(len(model.coef_))],
+                    '回帰係数': model.coef_.round(4),
+                    '絶対値': np.abs(model.coef_).round(4)
+                }).sort_values('絶対値', ascending=False)
             
             st.dataframe(results_df, use_container_width=True)
+            
+            # デバッグ情報
+            st.write(f"説明変数数: {len(explanatory_vars)}")
+            st.write(f"使用したカラム: {explanatory_vars[:5]}...") # 最初の5個を表示
             
     except ImportError as e:
         st.error(f"必要なライブラリが見つかりません: {e}")
@@ -1215,21 +1289,39 @@ def show_professional_text_mining(data, kpis):
             st.warning("選択された項目にテキストデータがありません")
             return
         
-        # 簡単な日本語キーワード抽出
+        # 日本語テキストの前処理とキーワード抽出
         all_text = ' '.join(text_data.astype(str))
         
+        # ノイズ文字を除去
+        all_text = re.sub(r'[\n\r\t]+', ' ', all_text)  # 改行、タブをスペースに
+        all_text = re.sub(r'[0-9０-９]+', '', all_text)  # 数字を除去
+        
         # 日本語の単語を抽出（ひらがな、カタカナ、漢字）
-        japanese_pattern = r'[ぁ-んァ-ヶー一-龯]+'
+        japanese_pattern = r'[ぁ-んァ-ヶー一-龯]{2,}'
         words = re.findall(japanese_pattern, all_text)
         
-        # 短すぎる単語を除外
-        words = [word for word in words if len(word) >= 2]
+        # 一般的なストップワードを除外
+        stop_words = [
+            'です', 'である', 'であり', 'あります', 'います', 'します', 'している',
+            'こと', 'もの', 'この', 'その', 'あの', 'どの', 'など', 'などの',
+            'ことが', 'ことで', 'ことに', 'ことを', 'ため', 'よう', 'ように',
+            'ている', 'ています', 'ており', 'てあり'
+        ]
+        words = [word for word in words if word not in stop_words and len(word) >= 2]
         
         # 頻出単語をカウント
         word_freq = Counter(words)
         
+        # デバッグ情報
+        st.info(f"🔍 抽出した全単語数: {len(words)}, ユニーク単語数: {len(word_freq)}")
+        
         if len(word_freq) == 0:
             st.warning("キーワードが抽出されませんでした")
+            st.info("テキストデータの内容を確認してください。")
+            # デバッグ: 元テキストを表示
+            with st.expander("🔍 デバッグ: 元テキストサンプル"):
+                st.write(f"全テキストの最初の500文字:")
+                st.text(all_text[:500])
             return
         
         # 結果表示

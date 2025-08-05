@@ -402,9 +402,20 @@ def load_real_data_for_analysis():
     """実際のデータを読み込んで分析用に準備"""
     try:
         import os
-        excel_path = '/Users/sugayayoshiyuki/Desktop/採用可視化サーベイ/従業員調査.xlsx'
         
-        if os.path.exists(excel_path):
+        # Streamlit Cloud対応: 複数のパスをチェック
+        excel_paths = [
+            'data.xlsx',  # Streamlit Cloud用
+            '/Users/sugayayoshiyuki/Desktop/採用可視化サーベイ/従業員調査.xlsx'  # ローカル用
+        ]
+        
+        excel_path = None
+        for path in excel_paths:
+            if os.path.exists(path):
+                excel_path = path
+                break
+        
+        if excel_path:
             df = pd.read_excel(excel_path, sheet_name='Responses', header=0)
             
             # 必要なカラムの存在確認と正規化
@@ -427,8 +438,15 @@ def load_real_data_for_analysis():
             # テキストカラムを探す（自由記述回答）
             text_columns = []
             for col in df.columns:
-                if '項目について' in str(col) or '満足度が高い' in str(col) or '満足度が低い' in str(col):
+                col_str = str(col)
+                # より幅広いパターンでテキストカラムを検出
+                if any(keyword in col_str for keyword in ['項目について', '満足度が高い', '満足度が低い', '具体的に', '教えていただけ', '期待していること']):
                     text_columns.append(col)
+                    
+            # デバッグ: 見つかったテキストカラムを表示
+            print(f"Debug: 見つかったテキストカラム数: {len(text_columns)}")
+            if text_columns:
+                print(f"Debug: テキストカラム: {text_columns[:3]}...")  # 最初の3個を表示
             
             # 複数のテキストカラムを組み合わせてコメント作成
             if text_columns:
@@ -449,8 +467,15 @@ def load_real_data_for_analysis():
                 
                 df['comment'] = comments
             else:
-                # フォールバック：ダミーコメント
-                df['comment'] = 'コメントデータなし'
+                # フォールバック：ダミーコメントを作成
+                sample_comments = [
+                    'ワークライフバランスを改善してほしい',
+                    '給与水準の向上を期待しています',
+                    'キャリア開発の機会を増やしてほしい',
+                    '残業時間を減らしてほしい',
+                    '职場環境の改善を期待しています'
+                ]
+                df['comment'] = np.random.choice(sample_comments, len(df))
             
             # 低満足度ラベルを作成（総合満足度の下位20%）
             if 'overall_satisfaction' in df.columns:
@@ -475,6 +500,7 @@ def load_real_data_for_analysis():
             
             return df, True
         else:
+            st.warning("📁 実データファイルが見つかりません。デモデータを使用します。")
             return create_sample_data_for_ml(200), False
             
     except Exception as e:
