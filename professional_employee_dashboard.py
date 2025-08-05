@@ -999,7 +999,7 @@ def show_professional_category_analysis(data, kpis):
             # 4象限の分類
             def classify_quadrant(satisfaction, expectation, sat_med, exp_med):
                 if satisfaction >= sat_med and expectation >= exp_med:
-                    return "🔥 重点改善領域"
+                    return "💪 強み領域"
                 elif satisfaction < sat_med and expectation >= exp_med:
                     return "⚠️ 最優先改善領域"
                 elif satisfaction >= sat_med and expectation < exp_med:
@@ -1041,7 +1041,7 @@ def show_professional_category_analysis(data, kpis):
                 range_y=range_y,
                 color_discrete_map={
                     '⚠️ 最優先改善領域': '#ef4444',
-                    '🔥 重点改善領域': '#f59e0b', 
+                    '💪 強み領域': '#f59e0b', 
                     '💤 低優先度領域': '#94a3b8',
                     '✅ 維持領域': '#22c55e'
                 }
@@ -1081,7 +1081,7 @@ def show_professional_category_analysis(data, kpis):
                 type="rect",
                 x0=satisfaction_median, y0=expectation_median, x1=range_x[1], y1=range_y[1],
                 fillcolor="rgba(245, 158, 11, 0.1)", line=dict(width=0)
-            )  # 重点改善領域
+            )  # 強み領域
             
             fig.add_shape(
                 type="rect",
@@ -1099,7 +1099,7 @@ def show_professional_category_analysis(data, kpis):
             fig.add_annotation(
                 x=satisfaction_median + (range_x[1] - satisfaction_median) * 0.5,
                 y=expectation_median + (range_y[1] - expectation_median) * 0.8,
-                text="🔥<br>重点改善",
+                text="💪<br>強み",
                 showarrow=False,
                 font=dict(size=14, color="orange", family="Arial Black"),
                 bgcolor="rgba(255,255,255,0.8)",
