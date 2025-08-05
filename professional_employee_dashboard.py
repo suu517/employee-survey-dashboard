@@ -319,11 +319,14 @@ COLUMN_MAPPING = {
 
 @st.cache_data
 def load_real_excel_data():
-    """実際のExcelデータを読み込み、処理する"""
+    """新しいExcelファイル構造に対応したデータ読み込み"""
     try:
         excel_path = '/Users/sugayayoshiyuki/Desktop/採用可視化サーベイ/従業員調査.xlsx'
         
         if not os.path.exists(excel_path):
+            st.error(f"❌ Excelファイルが見つかりません: {excel_path}")
+            st.warning("⚠️ フォールバック: デモ用ダミーデータを使用します")
+            st.info("📁 正しいExcelファイルを配置してページを再読み込みしてください")
             return create_professional_dummy_data(), False
         
         # Excelファイルを読み込む
@@ -331,64 +334,111 @@ def load_real_excel_data():
         
         if 'Responses' in excel_file.sheet_names:
             # 1行目をヘッダーとして読み込み
-            df = pd.read_excel(excel_path, sheet_name='Responses', header=1)
+            df = pd.read_excel(excel_path, sheet_name='Responses', header=0)
             
-            # データが十分にない場合はダミーデータを使用
-            if len(df) <= 2:
-                st.info("実データが少ないため、分析用のダミーデータを使用しています")
+            print(f"読み込んだデータの形状: {df.shape}")
+            
+            # データが十分にない場合
+            if len(df) <= 1:
+                st.error("❌ 実データが不足しています（データ件数: {len(df)}件）")
+                st.warning("⚠️ フォールバック: 分析用のデモ用ダミーデータを使用します")
+                st.info("📊 正常な分析には複数行のデータが必要です")
                 return create_professional_dummy_data(), False
             
-            # カラム名を正規化
+            # 基本カラムの正規化
             df = df.rename(columns=COLUMN_MAPPING)
             
             # 数値データの抽出と変換
-            for col in ['recommend_score', 'overall_satisfaction', 'long_term_intention', 'sense_of_contribution']:
-                if col in df.columns:
-                    # 数値部分を抽出して数値に変換
-                    extracted = df[col].astype(str).str.extract(r'(\d+)', expand=False)
-                    df[col] = pd.to_numeric(extracted, errors='coerce')
+            numeric_columns = ['recommend_score', 'overall_satisfaction', 'long_term_intention', 'sense_of_contribution',
+                             'start_year', 'annual_salary', 'avg_monthly_overtime', 'paid_leave_usage_rate']
             
-            # 基本データの型変換
-            for col in ['start_year', 'annual_salary', 'avg_monthly_overtime', 'paid_leave_usage_rate']:
+            for col in numeric_columns:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce')
             
-            # 満足度・期待度データの処理（実際のExcelファイル構造に基づく）
-            satisfaction_mapping = {
-                '自分に合った勤務時間で働ける（1: 満足していない': 'work_hours_satisfaction',
-                '休日休暇がちゃんと取れる（1: 満足していない': 'holidays_satisfaction',
-                '有給休暇がちゃんと取れる（1: 満足していない': 'paid_leave_satisfaction',
-                '柔軟な勤務体系（リモートワーク、時短勤務、フレックス制など）のもとで働ける（1: 満足していない': 'flex_work_satisfaction',
-                '自宅から適切な距離で働ける（1: 満足していない': 'commute_satisfaction',
-                '誇りやプライドを持てるような仕事内容を提供してくれる環境について（1: 満足していない': 'pride_in_work_satisfaction',
-                '人間関係が良好な環境について（1: 満足していない': 'relationships_satisfaction',
-                '自身の行った仕事が正当に評価される体制について（1: 満足していない': 'fair_evaluation_satisfaction'
+            # 期待度項目の識別パターン
+            expectation_patterns = {
+                '勤務時間': 'work_hours',
+                '休日休暇がちゃんと取れる': 'holidays',
+                '有給休暇がちゃんと取れる': 'paid_leave',
+                '柔軟な勤務体系': 'flex_work',
+                '自宅から適切な距離': 'commute',
+                '転勤体制': 'job_transfer',
+                '社内異動': 'internal_mobility',
+                '残業代': 'overtime_pay',
+                '仕事量': 'workload',
+                '身体的負荷': 'physical_load',
+                '精神的負荷': 'mental_load',
+                '福利厚生': 'benefits',
+                '正当に評価': 'fair_evaluation',
+                '昇給・昇格': 'promotion',
+                '目標やノルマ': 'achievable_goals',
+                '専門的なスキル': 'specialized_skills',
+                '汎用的なスキル': 'general_skills',
+                '教育体制': 'training',
+                'キャリアパス': 'career_path',
+                '将来.*マッチ': 'career_match',
+                'ロールモデル': 'role_models',
+                '誇り.*プライド': 'pride_in_work',
+                '社会.*貢献': 'social_contribution',
+                'やりがい': 'job_fulfillment',
+                '裁量': 'autonomy',
+                '成長実感': 'sense_of_growth',
+                '達成感': 'sense_of_achievement',
+                '大きな.*プロジェクト': 'impactful_work',
+                '強み.*活かす': 'use_of_strengths',
+                '人間関係': 'relationships',
+                'ハラスメント': 'harassment_free',
+                '社風.*文化': 'culture_fit',
+                '風通し': 'open_communication',
+                '相互.*学び': 'learning_culture',
+                '事業基盤': 'company_stability',
+                '経営戦略': 'management_strategy',
+                '競合優位性': 'competitive_edge',
+                'ブランド力': 'brand_power',
+                'ミッション.*バリュー': 'mission_vision_fit',
+                '法令遵守': 'compliance',
+                'オフィス環境': 'work_environment',
+                '女性.*働きやすい': 'women_support'
             }
             
-            expectation_mapping = {
-                '自分に合った勤務時間で働ける職場（1: 今の職場には期待していない': 'work_hours_expectation',
-                '休日休暇がちゃんと取れる職場（1: 今の職場には期待していない': 'holidays_expectation',
-                '有給休暇がちゃんと取れる職場（1: 今の職場には期待していない': 'paid_leave_expectation',
-                '柔軟な勤務体系（リモートワーク、時短勤務、フレックス制など）のもとで働ける職場（1: 今の職場には期待していない': 'flex_work_expectation',
-                '自宅から適切な距離で働ける職場（1: 今の職場には期待していない': 'commute_expectation',
-                '誇りやプライドを持てるような仕事内容を提供してくれる職場（1: 今の職場には期待していない': 'pride_in_work_expectation',
-                '人間関係が良好な職場（1: 今の職場には期待していない': 'relationships_expectation'
-            }
+            # 期待度・満足度データの処理
+            expectation_columns = {}
+            satisfaction_columns = {}
             
-            # 満足度データの処理
-            for original_col, new_col in satisfaction_mapping.items():
-                matching_cols = [col for col in df.columns if original_col in str(col)]
-                if matching_cols:
-                    df[new_col] = df[matching_cols[0]].astype(str).str.extract(r'(\d+)').astype(float)
+            for col in df.columns:
+                col_str = str(col)
+                
+                # 期待度項目の識別
+                if '今の職場には期待' in col_str or '期待していない' in col_str:
+                    for pattern, key in expectation_patterns.items():
+                        if re.search(pattern, col_str):
+                            expectation_columns[col] = f'{key}_expectation'
+                            break
+                
+                # 満足度項目の識別  
+                elif '満足していない' in col_str or '満足している' in col_str:
+                    for pattern, key in expectation_patterns.items():
+                        if re.search(pattern, col_str):
+                            satisfaction_columns[col] = f'{key}_satisfaction'
+                            break
             
-            # 期待度データの処理
-            for original_col, new_col in expectation_mapping.items():
-                matching_cols = [col for col in df.columns if original_col in str(col)]
-                if matching_cols:
-                    df[new_col] = df[matching_cols[0]].astype(str).str.extract(r'(\d+)').astype(float)
+            # 期待度・満足度データの変換
+            for original_col, new_col in expectation_columns.items():
+                if original_col in df.columns:
+                    df[new_col] = pd.to_numeric(df[original_col], errors='coerce')
+            
+            for original_col, new_col in satisfaction_columns.items():
+                if original_col in df.columns:
+                    df[new_col] = pd.to_numeric(df[original_col], errors='coerce')
+            
+            print(f"処理後のデータ形状: {df.shape}")
+            print(f"期待度項目数: {len(expectation_columns)}")
+            print(f"満足度項目数: {len(satisfaction_columns)}")
             
             return df, True
         else:
+            st.warning("'Responses'シートが見つかりません。ダミーデータを使用します。")
             return create_professional_dummy_data(), False
             
     except Exception as e:
@@ -442,23 +492,24 @@ def create_professional_dummy_data():
 
 @st.cache_data
 def calculate_professional_kpis(data, is_real_data):
-    """KPIを計算"""
-    # NPS計算（recommend_scoreが存在しない場合の対処）
+    """更新されたKPI計算"""
+    # 勤続年数計算
+    current_year = datetime.now().year
+    if 'start_year' in data.columns:
+        data['work_years'] = current_year - data['start_year']
+    else:
+        data['work_years'] = 3.5
+    
+    # NPS計算（1-5スケールを0-10に変換）
     if 'recommend_score' in data.columns and not data['recommend_score'].isna().all():
-        promoters = len(data[data['recommend_score'] >= 9])
-        detractors = len(data[data['recommend_score'] <= 6])
+        recommend_scaled = data['recommend_score'] * 2  # 1-5 → 2-10
+        promoters = len(recommend_scaled[recommend_scaled >= 9])
+        detractors = len(recommend_scaled[recommend_scaled <= 6])
         nps = ((promoters - detractors) / len(data)) * 100
         avg_recommend_score = data['recommend_score'].mean()
     else:
         nps = 0
         avg_recommend_score = 0
-    
-    # 勤続年数計算（入社月のデータがないため、入社年度から概算）
-    current_year = datetime.now().year
-    if 'start_year' in data.columns:
-        data['work_years'] = current_year - data['start_year']
-    else:
-        data['work_years'] = 3.5  # デフォルト値
     
     # カテゴリ別統計
     category_stats = {}
@@ -470,9 +521,9 @@ def calculate_professional_kpis(data, is_real_data):
             sat_col = f'{item_key}_satisfaction'
             exp_col = f'{item_key}_expectation'
             
-            if sat_col in data.columns:
+            if sat_col in data.columns and not data[sat_col].isna().all():
                 satisfaction_values.append(data[sat_col].mean())
-            if exp_col in data.columns:
+            if exp_col in data.columns and not data[exp_col].isna().all():
                 expectation_values.append(data[exp_col].mean())
         
         if satisfaction_values:
@@ -489,11 +540,11 @@ def calculate_professional_kpis(data, is_real_data):
             sat_col = f'{item_key}_satisfaction'
             exp_col = f'{item_key}_expectation'
             
-            if sat_col in data.columns:
+            if sat_col in data.columns and not data[sat_col].isna().all():
                 item_stats[item_name] = {
                     'satisfaction': data[sat_col].mean(),
-                    'expectation': data[exp_col].mean() if exp_col in data.columns else 0,
-                    'gap': data[sat_col].mean() - data[exp_col].mean() if exp_col in data.columns else 0
+                    'expectation': data[exp_col].mean() if exp_col in data.columns and not data[exp_col].isna().all() else 0,
+                    'gap': data[sat_col].mean() - data[exp_col].mean() if exp_col in data.columns and not data[exp_col].isna().all() else 0
                 }
     
     # 安全にKPIを計算
@@ -514,7 +565,8 @@ def calculate_professional_kpis(data, is_real_data):
         'avg_work_years': safe_mean('work_years', 3.5),
         'category_stats': category_stats,
         'item_stats': item_stats,
-        'is_real_data': is_real_data
+        'is_real_data': is_real_data,
+        'data_source': "Real Survey Data (150 responses)" if is_real_data else "Demo Data"
     }
 
 def get_kpi_color_class(value, thresholds):
@@ -537,7 +589,7 @@ def show_professional_kpi_overview(data, kpis):
     """, unsafe_allow_html=True)
     
     # データソース表示
-    data_source = "Real Survey Data" if kpis['is_real_data'] else "Demo Data"
+    data_source = kpis.get('data_source', "Demo Data")
     st.markdown(f"**Data Source:** {data_source} | **Sample Size:** {kpis['total_employees']} employees")
     
     # KPIカード
@@ -891,6 +943,14 @@ def main():
     with st.spinner("Loading survey data..."):
         data, is_real_data = load_real_excel_data()
         kpis = calculate_professional_kpis(data, is_real_data)
+    
+    # データソース状況の表示
+    if is_real_data:
+        st.success(f"✅ 実際の従業員調査データを使用中（{len(data)}件）")
+        st.info("📊 このダッシュボードは最新の従業員調査結果を反映しています")
+    else:
+        st.warning("⚠️ デモ用データを使用中 - 実際のExcelファイルが見つからないため")
+        st.info("📁 実データを使用するには正しいExcelファイルを配置してください")
     
     # ページ表示
     if page == "Dashboard Overview":
