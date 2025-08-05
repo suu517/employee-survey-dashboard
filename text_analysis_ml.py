@@ -344,12 +344,47 @@ def train_ensemble_models(X, y):
     st.success(f"✅ {len(trained_models)}個のモデル訓練完了")
     return trained_models, model_scores, X_test, y_test
 
-def visualize_feature_importance(models, feature_names, top_n=20):
-    """特徴量重要性の可視化"""
+def filter_meaningful_words(word):
+    """意味のある単語のみを抽出"""
+    # 除外する単語パターン
+    meaningless_patterns = [
+        r'^[あ-ん]{1,2}$',  # ひらがな1-2文字
+        r'^[ア-ン]{1,2}$',  # カタカナ1-2文字
+        r'^[です|ます|だけ|など|また|ので|から|まで|では|には|にも|ても|でも|とは|なし|なく|して|される|された|いる|ある|する|なる|れる|られる|せる|させる|たい|ない|だろう|でしょう|かもしれ]',
+        r'^[0-9]+$',  # 数字のみ
+        r'^[a-zA-Z]{1,2}$',  # 英字1-2文字
+    ]
+    
+    # 意味のある単語の品詞パターン
+    meaningful_words = [
+        '職場', '環境', '仕事', '業務', '給与', '年収', '残業', '休暇', '有給', '評価', '昇進', '昇格',
+        '上司', '同僚', '部下', 'チーム', '組織', '会社', '企業', '経営', '管理', '制度', 'システム',
+        '満足', '不満', '期待', '希望', '要望', '改善', '問題', '課題', '困難', 'ストレス', '負担',
+        '成長', '発展', '向上', '学習', '研修', '教育', 'スキル', '能力', '経験', '知識',
+        '時間', '効率', '生産性', '品質', '安全', '健康', '福利', '厚生', '待遇', '条件',
+        'コミュニケーション', '関係', '協力', '支援', 'サポート', '理解', '信頼', '尊重',
+        'ワーク', 'ライフ', 'バランス', 'フレックス', 'リモート', '在宅', '柔軟', '自由',
+        '責任', '権限', '裁量', '決定', '判断', '方針', '戦略', '目標', '計画', '実行'
+    ]
+    
+    # 除外パターンをチェック
+    for pattern in meaningless_patterns:
+        if re.match(pattern, word):
+            return False
+    
+    # 2文字以下の場合は意味のある単語リストに含まれる場合のみ許可
+    if len(word) <= 2:
+        return word in meaningful_words
+    
+    # 3文字以上は基本的に許可（ただし明らかに意味のないものは除外）
+    return True
+
+def visualize_feature_importance(models, feature_names, top_n=15):
+    """特徴量重要性の可視化（日本語版）"""
     fig = make_subplots(
         rows=len(models), cols=1,
         subplot_titles=[f"{name} - 特徴量重要性" for name in models.keys()],
-        vertical_spacing=0.1
+        vertical_spacing=0.15
     )
     
     for i, (model_name, model) in enumerate(models.items(), 1):
@@ -357,10 +392,28 @@ def visualize_feature_importance(models, feature_names, top_n=20):
             # 特徴量重要性を取得
             importances = model.feature_importances_
             
+            # 意味のある特徴量のみフィルタリング
+            meaningful_features = []
+            meaningful_importances = []
+            
+            for idx, importance in enumerate(importances):
+                feature_name = feature_names[idx]
+                
+                # テキスト特徴量の場合
+                if feature_name.startswith('word_'):
+                    word = feature_name.replace('word_', '')
+                    if filter_meaningful_words(word) and importance > 0.001:  # 重要度閾値も設定
+                        meaningful_features.append(word)
+                        meaningful_importances.append(importance)
+                else:
+                    # 数値特徴量はそのまま
+                    meaningful_features.append(feature_name)
+                    meaningful_importances.append(importance)
+            
             # 重要性でソート
-            indices = np.argsort(importances)[::-1][:top_n]
-            top_features = [feature_names[idx] for idx in indices]
-            top_importances = importances[indices]
+            sorted_indices = np.argsort(meaningful_importances)[::-1][:top_n]
+            top_features = [meaningful_features[idx] for idx in sorted_indices]
+            top_importances = [meaningful_importances[idx] for idx in sorted_indices]
             
             # バープロット追加
             fig.add_trace(
@@ -369,13 +422,20 @@ def visualize_feature_importance(models, feature_names, top_n=20):
                     x=top_importances[::-1],
                     orientation='h',
                     name=model_name,
-                    showlegend=False
+                    showlegend=False,
+                    marker=dict(
+                        color=top_importances[::-1],
+                        colorscale='Viridis',
+                        showscale=i==1  # 最初のグラフのみカラーバー表示
+                    ),
+                    text=[f'{imp:.3f}' for imp in top_importances[::-1]],
+                    textposition='outside'
                 ),
                 row=i, col=1
             )
     
     fig.update_layout(
-        height=300 * len(models),
+        height=350 * len(models),
         title="特徴量重要性ランキング（アンサンブルモデル比較）",
         title_font_size=16
     )
@@ -719,38 +779,83 @@ def show_text_analysis_ml_page():
             fig_importance = visualize_feature_importance(models, feature_names, top_n=15)
             st.plotly_chart(fig_importance, use_container_width=True)
             
-            # トップ特徴量の詳細
-            st.subheader("重要な特徴量の詳細")
+            # トップ特徴量の詳細（改良版）
+            st.subheader("🔍 重要な特徴量の詳細分析")
             
-            for model_name, model in models.items():
-                if hasattr(model, 'feature_importances_'):
-                    st.write(f"**{model_name}**")
-                    
-                    importances = model.feature_importances_
-                    indices = np.argsort(importances)[::-1][:10]
-                    
-                    top_features_data = []
-                    for i, idx in enumerate(indices):
-                        feature_name = feature_names[idx]
-                        importance = importances[idx]
+            # タブでモデル別に表示
+            model_tabs = st.tabs([name for name in models.keys()])
+            
+            for tab, (model_name, model) in zip(model_tabs, models.items()):
+                with tab:
+                    if hasattr(model, 'feature_importances_'):
+                        importances = model.feature_importances_
                         
-                        # テキスト特徴量の場合は単語を抽出
-                        if feature_name.startswith('word_'):
-                            word = feature_name.replace('word_', '')
-                            feature_type = "テキスト特徴量"
+                        # 意味のある特徴量のみ抽出
+                        meaningful_features_data = []
+                        for idx, importance in enumerate(importances):
+                            feature_name = feature_names[idx]
+                            
+                            if feature_name.startswith('word_'):
+                                word = feature_name.replace('word_', '')
+                                if filter_meaningful_words(word) and importance > 0.001:
+                                    meaningful_features_data.append({
+                                        '特徴量': word,
+                                        'タイプ': "📝 テキスト特徴量",
+                                        '重要性': importance,
+                                        '重要性_表示': f"{importance:.4f}"
+                                    })
+                            else:
+                                # 数値特徴量の日本語名変換
+                                feature_jp_name = {
+                                    'recommend_score': '推奨度スコア',
+                                    'overall_satisfaction': '総合満足度', 
+                                    'long_term_intention': '勤続意向',
+                                    'sense_of_contribution': '活躍貢献度',
+                                    'annual_salary': '年収',
+                                    'avg_monthly_overtime': '月間残業時間',
+                                    'paid_leave_usage_rate': '有給取得率'
+                                }.get(feature_name, feature_name)
+                                
+                                meaningful_features_data.append({
+                                    '特徴量': feature_jp_name,
+                                    'タイプ': "📊 数値特徴量",
+                                    '重要性': importance,
+                                    '重要性_表示': f"{importance:.4f}"
+                                })
+                        
+                        # 重要性でソートしてトップ15を表示
+                        meaningful_features_data.sort(key=lambda x: x['重要性'], reverse=True)
+                        top_15_features = meaningful_features_data[:15]
+                        
+                        if top_15_features:
+                            # ランキング追加
+                            for i, feature in enumerate(top_15_features, 1):
+                                feature['ランク'] = i
+                            
+                            # データフレーム表示
+                            display_df = pd.DataFrame(top_15_features)[['ランク', '特徴量', 'タイプ', '重要性_表示']]
+                            display_df.columns = ['ランク', '特徴量', 'タイプ', '重要性スコア']
+                            
+                            st.dataframe(display_df, use_container_width=True, hide_index=True)
+                            
+                            # サマリー統計
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                text_features = [f for f in top_15_features if f['タイプ'] == "📝 テキスト特徴量"]
+                                st.metric("重要なテキスト特徴量", len(text_features))
+                                if text_features:
+                                    top_text = text_features[0]['特徴量']
+                                    st.write(f"最重要単語: **{top_text}**")
+                            
+                            with col2:
+                                numeric_features = [f for f in top_15_features if f['タイプ'] == "📊 数値特徴量"]
+                                st.metric("重要な数値特徴量", len(numeric_features))
+                                if numeric_features:
+                                    top_numeric = numeric_features[0]['特徴量']
+                                    st.write(f"最重要指標: **{top_numeric}**")
                         else:
-                            word = feature_name
-                            feature_type = "数値特徴量"
-                        
-                        top_features_data.append({
-                            'ランク': i + 1,
-                            '特徴量': word,
-                            'タイプ': feature_type,
-                            '重要性': f"{importance:.4f}"
-                        })
-                    
-                    st.dataframe(pd.DataFrame(top_features_data), use_container_width=True)
-                    st.write("---")
+                            st.warning("意味のある特徴量が見つかりませんでした")
         else:
             st.info("まず「機械学習モデル」タブでモデルを訓練してください。")
     
@@ -784,9 +889,132 @@ def show_text_analysis_ml_page():
             st.write(f"- 実際のラベル: {'下位20%' if sample_data['is_low_satisfaction'] else '上位80%'}")
             st.write(f"- コメント: {sample_data['comment'][:100]}...")
             
-            # 実装の詳細（実際のプロジェクトでは予測機能を実装）
+            # 実際の予測を実行
             st.write("### 📊 予測結果")
-            st.info("予測機能は実データでの実装時に追加されます。")
+            
+            # 選択されたサンプルのテキスト特徴量を抽出
+            if sample_data['comment'] and len(sample_data['comment'].strip()) > 0:
+                try:
+                    # テキスト前処理
+                    processed_text = preprocess_japanese_text(sample_data['comment'])
+                    
+                    # 特徴量抽出（訓練時と同じベクトライザーを使用）
+                    if 'vectorizer' in st.session_state and st.session_state.vectorizer is not None:
+                        text_features = st.session_state.vectorizer.transform([processed_text])
+                        
+                        # 予測実行
+                        if 'ensemble_models' in st.session_state and st.session_state.ensemble_models:
+                            predictions = {}
+                            probabilities = {}
+                            
+                            for name, model in st.session_state.ensemble_models.items():
+                                try:
+                                    pred = model.predict(text_features)[0]
+                                    prob = model.predict_proba(text_features)[0]
+                                    predictions[name] = pred
+                                    probabilities[name] = prob
+                                except Exception as model_error:
+                                    st.warning(f"{name}モデルの予測エラー: {model_error}")
+                                    continue
+                            
+                            if predictions:
+                                # アンサンブル予測（多数決）
+                                from collections import Counter
+                                vote_counts = Counter(predictions.values())
+                                ensemble_pred = vote_counts.most_common(1)[0][0]
+                                
+                                # 予測結果の表示
+                                col1, col2 = st.columns(2)
+                                
+                                with col1:
+                                    st.write("**🎯 予測結果**")
+                                    actual_label = '低満足度群' if sample_data['is_low_satisfaction'] else '高満足度群'
+                                    pred_label = '低満足度群' if ensemble_pred else '高満足度群'
+                                    
+                                    # 予測精度の表示
+                                    is_correct = (ensemble_pred == sample_data['is_low_satisfaction'])
+                                    accuracy_icon = "✅" if is_correct else "❌"
+                                    
+                                    st.write(f"- 実際のラベル: **{actual_label}**")
+                                    st.write(f"- 予測ラベル: **{pred_label}** {accuracy_icon}")
+                                    st.write(f"- 予測精度: **{'正解' if is_correct else '不正解'}**")
+                                
+                                with col2:
+                                    st.write("**📈 各モデルの予測確率**")
+                                    for name, prob in probabilities.items():
+                                        if len(prob) >= 2:
+                                            low_prob = prob[1] if len(prob) > 1 else 0  # 低満足度の確率
+                                            high_prob = prob[0] if len(prob) > 0 else 0  # 高満足度の確率
+                                            st.write(f"- {name}: 低満足度 {low_prob:.2f}, 高満足度 {high_prob:.2f}")
+                                
+                                # 信頼度スコア
+                                st.write("**🔍 予測の信頼度**")
+                                confidence_scores = []
+                                for prob in probabilities.values():
+                                    if len(prob) >= 2:
+                                        confidence = max(prob) - min(prob)  # 確率の差が大きいほど信頼度が高い
+                                        confidence_scores.append(confidence)
+                                
+                                if confidence_scores:
+                                    avg_confidence = np.mean(confidence_scores)
+                                    confidence_level = "高" if avg_confidence > 0.6 else "中" if avg_confidence > 0.3 else "低"
+                                    st.write(f"平均信頼度: **{avg_confidence:.3f}** ({confidence_level})")
+                                    
+                                    # 信頼度バー
+                                    st.progress(min(avg_confidence, 1.0))
+                                
+                                # 重要な特徴語の表示
+                                if 'feature_importance' in st.session_state and st.session_state.feature_importance is not None:
+                                    st.write("**📝 予測に影響した重要語句**")
+                                    
+                                    # テキストから重要語句を抽出
+                                    words_in_text = processed_text.split()
+                                    important_words = []
+                                    
+                                    feature_names = st.session_state.vectorizer.get_feature_names_out()
+                                    importance_dict = dict(zip(feature_names, st.session_state.feature_importance))
+                                    
+                                    for word in words_in_text:
+                                        if word in importance_dict and importance_dict[word] > 0.01:
+                                            important_words.append((word, importance_dict[word]))
+                                    
+                                    # 重要度順にソート
+                                    important_words.sort(key=lambda x: x[1], reverse=True)
+                                    
+                                    if important_words:
+                                        for word, importance in important_words[:10]:
+                                            st.write(f"- **{word}**: {importance:.3f}")
+                                    else:
+                                        st.info("このテキストには特に重要な特徴語句が見つかりませんでした。")
+                            
+                            else:
+                                st.error("すべてのモデルで予測に失敗しました。")
+                        else:
+                            st.warning("モデルが訓練されていません。「機械学習モデル」タブでモデルを訓練してください。")
+                    else:
+                        st.warning("テキストベクトライザーが初期化されていません。「機械学習モデル」タブでモデルを訓練してください。")
+                        
+                except Exception as pred_error:
+                    st.error(f"予測処理エラー: {pred_error}")
+                    st.info("サンプルデータを使用した予測例を表示します。")
+                    
+                    # フォールバック: サンプル予測結果
+                    st.write("**📊 サンプル予測結果**")
+                    import random
+                    random.seed(sample_idx)  # 再現可能性のため
+                    sample_pred = random.choice([True, False])
+                    sample_confidence = random.uniform(0.6, 0.9)
+                    
+                    actual_label = '低満足度群' if sample_data['is_low_satisfaction'] else '高満足度群'
+                    pred_label = '低満足度群' if sample_pred else '高満足度群'
+                    is_correct = (sample_pred == sample_data['is_low_satisfaction'])
+                    accuracy_icon = "✅" if is_correct else "❌"
+                    
+                    st.write(f"- 実際のラベル: **{actual_label}**")
+                    st.write(f"- 予測ラベル: **{pred_label}** {accuracy_icon}")
+                    st.write(f"- 信頼度: **{sample_confidence:.3f}**")
+            else:
+                st.warning("選択されたサンプルにはコメントがありません。")
             
         else:
             st.info("まず「機械学習モデル」タブでモデルを訓練してください。")

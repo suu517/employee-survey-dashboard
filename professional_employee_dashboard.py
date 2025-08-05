@@ -1235,67 +1235,161 @@ def show_professional_detailed_analysis(data, kpis):
         if item_data:
             item_df = pd.DataFrame(item_data).sort_values('Satisfaction', ascending=True)
             
-            col1, col2 = st.columns(2)
+            # タブで分離して見やすく
+            tab1, tab2, tab3 = st.tabs(["📊 満足度ランキング", "🎯 満足度 vs 期待度分析", "📋 詳細データ"])
             
-            with col1:
-                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            with tab1:
+                st.markdown("### 📊 項目別満足度ランキング")
+                st.markdown("各項目の満足度スコア（1-5点）をランキング形式で表示します。")
                 
                 fig = px.bar(
                     item_df,
                     x='Satisfaction',
                     y='Item',
                     orientation='h',
-                    title='Item Satisfaction Scores',
+                    title=f'{selected_category} - 項目別満足度ランキング',
                     color='Satisfaction',
                     color_continuous_scale='RdYlGn',
-                    range_color=[1, 5]
+                    range_color=[1, 5],
+                    height=600
                 )
                 
                 fig.update_layout(
-                    height=400,
-                    title_font_size=14,
-                    paper_bgcolor='rgba(255, 255, 255, 0)',
-                    plot_bgcolor='rgba(255, 255, 255, 0)'
+                    title_font_size=16,
+                    xaxis_title="満足度スコア (1-5点)",
+                    yaxis_title="",
+                    paper_bgcolor='white',
+                    plot_bgcolor='white',
+                    font=dict(size=12)
                 )
                 
                 st.plotly_chart(fig, use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                
+                # 上位・下位項目のサマリー
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("#### ✅ 満足度が高い項目 (TOP3)")
+                    top_items = item_df.nlargest(3, 'Satisfaction')
+                    for i, (_, row) in enumerate(top_items.iterrows(), 1):
+                        st.write(f"{i}. **{row['Item']}** - {row['Satisfaction']:.2f}点")
+                
+                with col2:
+                    st.markdown("#### ⚠️ 満足度が低い項目 (BOTTOM3)")
+                    bottom_items = item_df.nsmallest(3, 'Satisfaction')
+                    for i, (_, row) in enumerate(bottom_items.iterrows(), 1):
+                        st.write(f"{i}. **{row['Item']}** - {row['Satisfaction']:.2f}点")
             
-            with col2:
-                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+            with tab2:
+                st.markdown("### 🎯 満足度 vs 期待度 ポートフォリオ分析")
+                st.markdown("""
+                **このグラフの見方:**
+                - **X軸**: 満足度（現在の評価）
+                - **Y軸**: 期待度（期待される評価）
+                - **対角線**: 満足度=期待度のライン
+                - **対角線より上**: 期待が満足を上回る（改善余地あり）
+                - **対角線より下**: 満足が期待を上回る（強み項目）
+                """)
+                
+                # データの動的範囲調整
+                min_val = min(item_df['Satisfaction'].min(), item_df['Expectation'].min()) - 0.2
+                max_val = max(item_df['Satisfaction'].max(), item_df['Expectation'].max()) + 0.2
+                range_vals = [max(1, min_val), min(5, max_val)]
                 
                 fig = px.scatter(
                     item_df,
                     x='Satisfaction',
                     y='Expectation',
-                    size=np.abs(item_df['Gap']) + 0.1,
+                    size=np.abs(item_df['Gap']) * 10 + 50,
                     color='Gap',
                     hover_name='Item',
-                    title='Satisfaction vs Expectation',
+                    hover_data={
+                        'Satisfaction': ':.2f',
+                        'Expectation': ':.2f',
+                        'Gap': ':.2f'
+                    },
+                    title=f'{selected_category} - 満足度 vs 期待度ポートフォリオ',
                     color_continuous_scale='RdYlGn',
-                    range_x=[1, 5],
-                    range_y=[1, 5]
+                    range_x=range_vals,
+                    range_y=range_vals,
+                    height=600
                 )
                 
+                # 対角線追加
                 fig.add_shape(
-                    type="line", x0=1, y0=1, x1=5, y1=5,
-                    line=dict(color="gray", width=2, dash="dash"),
+                    type="line", x0=range_vals[0], y0=range_vals[0], x1=range_vals[1], y1=range_vals[1],
+                    line=dict(color="rgba(0,0,0,0.5)", width=2, dash="dash"),
                 )
+                
+                # 中央値ライン
+                satisfaction_median = item_df['Satisfaction'].median()
+                expectation_median = item_df['Expectation'].median()
+                
+                fig.add_hline(y=expectation_median, line_dash="dot", line_color="gray", opacity=0.7)
+                fig.add_vline(x=satisfaction_median, line_dash="dot", line_color="gray", opacity=0.7)
+                
+                # 項目名をラベル表示
+                for _, row in item_df.iterrows():
+                    fig.add_annotation(
+                        x=row['Satisfaction'],
+                        y=row['Expectation'],
+                        text=row['Item'][:8] + "..." if len(row['Item']) > 8 else row['Item'],
+                        showarrow=False,
+                        font=dict(size=9, color="black"),
+                        bgcolor="rgba(255,255,255,0.7)",
+                        bordercolor="rgba(0,0,0,0.3)",
+                        borderwidth=1,
+                        yshift=15
+                    )
                 
                 fig.update_layout(
-                    height=400,
-                    title_font_size=14,
-                    paper_bgcolor='rgba(255, 255, 255, 0)',
-                    plot_bgcolor='rgba(255, 255, 255, 0)'
+                    title_font_size=16,
+                    xaxis_title="満足度 (1-5点)",
+                    yaxis_title="期待度 (1-5点)",
+                    paper_bgcolor='white',
+                    plot_bgcolor='white',
+                    font=dict(size=12)
                 )
                 
                 st.plotly_chart(fig, use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                
+                # 分析結果のサマリー
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("#### 💪 強み項目（満足度 > 期待度）")
+                    strengths = item_df[item_df['Gap'] > 0].nlargest(3, 'Gap')
+                    if len(strengths) > 0:
+                        for _, row in strengths.iterrows():
+                            st.write(f"• **{row['Item']}** (ギャップ: +{row['Gap']:.2f})")
+                    else:
+                        st.write("該当項目なし")
+                
+                with col2:
+                    st.markdown("#### ⚠️ 改善項目（期待度 > 満足度）")
+                    improvements = item_df[item_df['Gap'] < 0].nsmallest(3, 'Gap')
+                    if len(improvements) > 0:
+                        for _, row in improvements.iterrows():
+                            st.write(f"• **{row['Item']}** (ギャップ: {row['Gap']:.2f})")
+                    else:
+                        st.write("該当項目なし")
             
-            # テーブル表示
-            st.markdown("#### Item Details")
-            display_df = item_df.round(2)
-            st.dataframe(display_df, use_container_width=True, hide_index=True)
+            with tab3:
+                st.markdown("### 📋 詳細データ一覧")
+                st.markdown("各項目の数値データを確認できます。")
+                
+                # 日本語カラム名に変更
+                display_df = item_df.rename(columns={
+                    'Item': '項目名',
+                    'Satisfaction': '満足度',
+                    'Expectation': '期待度',
+                    'Gap': 'ギャップ'
+                }).round(2)
+                
+                # 改善優先度でソート
+                display_df = display_df.sort_values('ギャップ', ascending=True)
+                
+                st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 def main():
     # サイドバー
