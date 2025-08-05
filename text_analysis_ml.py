@@ -34,6 +34,24 @@ except ImportError:
     except ImportError:
         TOKENIZER_TYPE = "simple"
 
+def preprocess_japanese_text(text):
+    """日本語テキストの前処理"""
+    if not text or pd.isna(text):
+        return ""
+    
+    text = str(text).strip()
+    if not text:
+        return ""
+    
+    # 基本的な前処理
+    text = re.sub(r'[^\w\s]', '', text)  # 句読点等を除去
+    text = re.sub(r'\s+', ' ', text)     # 複数の空白を1つに
+    text = text.lower()                   # 小文字に変換
+    
+    # 形態素解析でトークン化
+    tokens = japanese_tokenizer(text)
+    return ' '.join(tokens)
+
 def japanese_tokenizer(text):
     """日本語テキストの形態素解析"""
     if not text or pd.isna(text):
@@ -638,10 +656,124 @@ def show_text_analysis_ml_page():
             )
             st.plotly_chart(fig_nps, use_container_width=True)
         
-        # コメントサンプル表示
-        st.subheader("コメントサンプル")
+        # テキストマイニング分析
+        st.subheader("📝 テキストマイニング分析")
+        
+        # コメントテキストの前処理と分析
+        if 'comment' in df.columns:
+            all_comments = ' '.join(df['comment'].dropna().astype(str))
+            
+            # 形態素解析とワードカウント
+            tokens = japanese_tokenizer(all_comments)
+            meaningful_tokens = [token for token in tokens if filter_meaningful_words(token) and len(token) > 1]
+            
+            if meaningful_tokens:
+                from collections import Counter
+                word_counts = Counter(meaningful_tokens)
+                top_words = word_counts.most_common(20)
+                
+                if top_words:
+                    # 頻出キーワードTOP20を見やすく表示
+                    col1, col2 = st.columns([2, 1])
+                    
+                    with col1:
+                        # バープロット（縦向きで幅を広く）
+                        words, counts = zip(*top_words)
+                        
+                        fig_words = px.bar(
+                            x=list(counts),
+                            y=list(words),
+                            orientation='h',
+                            title="📊 頻出キーワード TOP20",
+                            labels={'x': '出現回数', 'y': 'キーワード'},
+                            color=list(counts),
+                            color_continuous_scale='Viridis',
+                            height=600  # 高さを大きく設定
+                        )
+                        
+                        # レイアウト改善
+                        fig_words.update_layout(
+                            title_font_size=16,
+                            xaxis_title="出現回数",
+                            yaxis_title="",
+                            paper_bgcolor='white',
+                            plot_bgcolor='white',
+                            font=dict(size=12),
+                            margin=dict(l=120, r=50, t=50, b=50),  # 左マージンを大きく
+                            yaxis=dict(
+                                categoryorder='total ascending',  # 値順でソート
+                                tickfont=dict(size=11)
+                            ),
+                            xaxis=dict(
+                                tickfont=dict(size=11),
+                                range=[0, max(counts) * 1.1]  # x軸の範囲を調整
+                            )
+                        )
+                        
+                        # データラベル追加
+                        fig_words.update_traces(
+                            texttemplate='%{x}',
+                            textposition='outside',
+                            textfont_size=10
+                        )
+                        
+                        st.plotly_chart(fig_words, use_container_width=True)
+                    
+                    with col2:
+                        # キーワード頻度テーブル
+                        st.markdown("#### 📈 キーワード出現頻度")
+                        
+                        word_df = pd.DataFrame(top_words, columns=['キーワード', '出現回数'])
+                        word_df['順位'] = range(1, len(word_df) + 1)
+                        word_df = word_df[['順位', 'キーワード', '出現回数']]
+                        
+                        # 色付きの表示
+                        st.dataframe(
+                            word_df,
+                            use_container_width=True,
+                            hide_index=True,
+                            height=400
+                        )
+                        
+                        # 統計情報
+                        st.markdown("##### 📊 統計サマリー")
+                        total_words = len(meaningful_tokens)
+                        unique_words = len(set(meaningful_tokens))
+                        avg_frequency = sum(counts) / len(counts)
+                        
+                        st.metric("総単語数", f"{total_words:,}")
+                        st.metric("ユニーク単語数", f"{unique_words:,}")
+                        st.metric("平均出現頻度", f"{avg_frequency:.1f}")
+                        
+                        # TOP5キーワードのハイライト
+                        st.markdown("##### 🔥 TOP5キーワード")
+                        for i, (word, count) in enumerate(top_words[:5], 1):
+                            percentage = (count / total_words) * 100
+                            st.write(f"{i}. **{word}** - {count}回 ({percentage:.1f}%)")
+                else:
+                    st.info("意味のあるキーワードが見つかりませんでした。")
+            else:
+                st.warning("分析可能なテキストデータがありません。")
+        
+        # コメントサンプル表示（改良版）
+        st.subheader("💬 コメントサンプル")
+        st.markdown("ランダムに選択された従業員コメントの例")
+        
         sample_comments = df.sample(5)[['overall_satisfaction', 'recommend_score', 'is_low_satisfaction', 'comment']]
-        st.dataframe(sample_comments, use_container_width=True)
+        sample_comments = sample_comments.rename(columns={
+            'overall_satisfaction': '総合満足度',
+            'recommend_score': '推奨スコア', 
+            'is_low_satisfaction': '低満足度フラグ',
+            'comment': 'コメント'
+        })
+        
+        # データフレームの表示を改良
+        st.dataframe(
+            sample_comments,
+            use_container_width=True,
+            hide_index=True,
+            height=250
+        )
     
     with tab2:
         st.subheader("機械学習モデルの訓練")
@@ -805,15 +937,31 @@ def show_text_analysis_ml_page():
                                         '重要性_表示': f"{importance:.4f}"
                                     })
                             else:
-                                # 数値特徴量の日本語名変換
+                                # 数値特徴量の日本語名変換（完全版）
                                 feature_jp_name = {
                                     'recommend_score': '推奨度スコア',
                                     'overall_satisfaction': '総合満足度', 
                                     'long_term_intention': '勤続意向',
                                     'sense_of_contribution': '活躍貢献度',
-                                    'annual_salary': '年収',
-                                    'avg_monthly_overtime': '月間残業時間',
-                                    'paid_leave_usage_rate': '有給取得率'
+                                    'annual_salary': '概算年収',
+                                    'avg_monthly_overtime': '月間平均残業時間',
+                                    'paid_leave_usage_rate': '年間有給取得率',
+                                    'start_year': '入社年度',
+                                    'employment_type': '雇用形態',
+                                    'department': '所属事業部',
+                                    'position': '役職',
+                                    'job_type': '職種',
+                                    'gender': '性別',
+                                    'age_group': '年代',
+                                    'tenure_years': '勤続年数',
+                                    # カテゴリ別特徴量
+                                    'work_environment': '職場環境',
+                                    'work_life_balance': 'ワークライフバランス',
+                                    'growth_development': '成長・発達',
+                                    'compensation_benefits': '給与・福利厚生',
+                                    'management_strategy': '経営戦略',
+                                    'recognition_evaluation': '評価・認知',
+                                    'communication_relationship': 'コミュニケーション・人間関係'
                                 }.get(feature_name, feature_name)
                                 
                                 meaningful_features_data.append({
