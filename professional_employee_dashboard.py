@@ -999,13 +999,13 @@ def show_professional_category_analysis(data, kpis):
             # 4象限の分類
             def classify_quadrant(satisfaction, expectation, sat_med, exp_med):
                 if satisfaction >= sat_med and expectation >= exp_med:
-                    return "🔥 重点改善領域\n(高期待・高満足)"
+                    return "🔥 重点改善領域"
                 elif satisfaction < sat_med and expectation >= exp_med:
-                    return "⚠️ 最優先改善領域\n(高期待・低満足)"
+                    return "⚠️ 最優先改善領域"
                 elif satisfaction >= sat_med and expectation < exp_med:
-                    return "✅ 維持領域\n(低期待・高満足)"
+                    return "✅ 維持領域"
                 else:
-                    return "💤 低優先度領域\n(低期待・低満足)"
+                    return "💤 低優先度領域"
             
             gap_df['象限'] = gap_df.apply(
                 lambda row: classify_quadrant(row['満足度'], row['期待度'], satisfaction_median, expectation_median), 
@@ -1024,10 +1024,10 @@ def show_professional_category_analysis(data, kpis):
                 range_x=[1, 5],
                 range_y=[1, 5],
                 color_discrete_map={
-                    '⚠️ 最優先改善領域\n(高期待・低満足)': '#ef4444',
-                    '🔥 重点改善領域\n(高期待・高満足)': '#f59e0b', 
-                    '💤 低優先度領域\n(低期待・低満足)': '#94a3b8',
-                    '✅ 維持領域\n(低期待・高満足)': '#22c55e'
+                    '⚠️ 最優先改善領域': '#ef4444',
+                    '🔥 重点改善領域': '#f59e0b', 
+                    '💤 低優先度領域': '#94a3b8',
+                    '✅ 維持領域': '#22c55e'
                 }
             )
             
