@@ -250,6 +250,87 @@ st.markdown("""
         text-align: center;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
+    
+    /* KPIカードスタイル */
+    .kpi-card {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: 16px;
+        padding: 24px 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        margin-bottom: 16px;
+        min-height: 140px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+    }
+    
+    .kpi-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+    }
+    
+    .kpi-title {
+        font-size: 13px;
+        color: #64748b;
+        margin-bottom: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        line-height: 1.2;
+    }
+    
+    .kpi-value {
+        font-size: 32px;
+        font-weight: 800;
+        color: #1e293b;
+        margin-bottom: 8px;
+        line-height: 1.1;
+        display: flex;
+        align-items: baseline;
+    }
+    
+    .kpi-unit {
+        font-size: 18px;
+        font-weight: 500;
+        color: #64748b;
+        margin-left: 4px;
+    }
+    
+    .kpi-change {
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        color: #64748b;
+        font-weight: 500;
+    }
+    
+    /* カラー付きKPIカード */
+    .kpi-card-green::before {
+        background: linear-gradient(90deg, #22c55e, #16a34a);
+    }
+    .kpi-card-orange::before {
+        background: linear-gradient(90deg, #f59e0b, #d97706);
+    }
+    .kpi-card-red::before {
+        background: linear-gradient(90deg, #ef4444, #dc2626);
+    }
+    .kpi-card-blue::before {
+        background: linear-gradient(90deg, #3b82f6, #2563eb);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -678,226 +759,283 @@ def get_kpi_color_class(value, thresholds):
         return 'kpi-warning'
 
 def show_professional_kpi_overview(data, kpis):
-    """プロフェッショナルなKPI概要表示"""
-    # メインヘッダー
-    st.markdown("""
-    <div class="main-header">
-        <h1>従業員調査ダッシュボード</h1>
-        <p>従業員満足度とエンゲージメント指標の包括的分析</p>
-    </div>
-    """, unsafe_allow_html=True)
+    """KPI概要を表示（カスタムボックス使用）"""
+    st.header("📊 従業員調査ダッシュボード")
     
-    # データソース表示
+    # 情報ボックス
     data_source = kpis.get('data_source', "デモデータ")
-    st.markdown(f"**データソース:** {data_source} | **サンプルサイズ:** {kpis['total_employees']}人")
+    st.info(f"📅 **データ最終更新:** {datetime.now().strftime('%Y/%m/%d %H:%M')} | 📋 **データソース:** {data_source} | 👥 **サンプルサイズ:** {kpis['total_employees']}人")
     
-    # KPIカード
+    if not kpis:
+        st.error("KPIデータが利用できません")
+        return
+    
+    st.subheader("🎯 主要指標")
+    
+    # メインKPI（カスタムボックス使用）
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        nps_class = get_kpi_color_class(kpis['nps'], {'good': 10, 'bad': -10})
+        nps_class = "kpi-card-blue" if kpis['nps'] >= 7 else "kpi-card-red" if kpis['nps'] <= 5 else "kpi-card-orange"
+        nps_status = "良好" if kpis['nps'] >= 7 else "要改善" if kpis['nps'] <= 5 else "普通"
         st.markdown(f"""
         <div class="kpi-card {nps_class}">
-            <div class="kpi-title">従業員NPS</div>
+            <div class="kpi-title">📈 従業員NPS</div>
             <div class="kpi-value">{kpis['nps']:.1f}</div>
-            <div class="kpi-description">推奨度スコア</div>
+            <div class="kpi-change">{nps_status} • 推奨度スコア</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
-        satisfaction_class = get_kpi_color_class(kpis['avg_satisfaction'], {'good': 4.0, 'bad': 2.5})
+        satisfaction = kpis['avg_satisfaction']
+        sat_class = "kpi-card-green" if satisfaction >= 4 else "kpi-card-red" if satisfaction <= 2.5 else "kpi-card-orange"
+        sat_status = "良好" if satisfaction >= 4 else "要改善" if satisfaction <= 2.5 else "普通"
         st.markdown(f"""
-        <div class="kpi-card {satisfaction_class}">
-            <div class="kpi-title">総合満足度</div>
-            <div class="kpi-value">{kpis['avg_satisfaction']:.2f}/5</div>
-            <div class="kpi-description">平均満足度スコア</div>
+        <div class="kpi-card {sat_class}">
+            <div class="kpi-title">😊 総合満足度</div>
+            <div class="kpi-value">{satisfaction:.2f}<span class="kpi-unit">/5</span></div>
+            <div class="kpi-change">{sat_status} • 平均満足度スコア</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col3:
-        contribution_class = get_kpi_color_class(kpis['avg_contribution'], {'good': 4.0, 'bad': 2.5})
+        contribution = kpis['avg_contribution']
+        cont_class = "kpi-card-green" if contribution >= 4 else "kpi-card-red" if contribution <= 2.5 else "kpi-card-orange"
+        cont_status = "高い" if contribution >= 4 else "低い" if contribution <= 2.5 else "普通"
         st.markdown(f"""
-        <div class="kpi-card {contribution_class}">
-            <div class="kpi-title">活躍貢献度</div>
-            <div class="kpi-value">{kpis['avg_contribution']:.2f}/5</div>
-            <div class="kpi-description">自己評価パフォーマンス</div>
+        <div class="kpi-card {cont_class}">
+            <div class="kpi-title">⭐ 活躍貢献度</div>
+            <div class="kpi-value">{contribution:.2f}<span class="kpi-unit">/5</span></div>
+            <div class="kpi-change">{cont_status} • 自己評価パフォーマンス</div>
         </div>
         """, unsafe_allow_html=True)
     
     with col4:
-        retention_class = get_kpi_color_class(kpis['avg_long_term_intention'], {'good': 4.0, 'bad': 2.5})
+        intention = kpis['avg_long_term_intention']
+        int_class = "kpi-card-green" if intention >= 4 else "kpi-card-red" if intention <= 2.5 else "kpi-card-orange"
+        int_status = "高い" if intention >= 4 else "低い" if intention <= 2.5 else "普通"
         st.markdown(f"""
-        <div class="kpi-card {retention_class}">
-            <div class="kpi-title">勤続意向</div>
-            <div class="kpi-value">{kpis['avg_long_term_intention']:.2f}/5</div>
-            <div class="kpi-description">長期コミットメント</div>
+        <div class="kpi-card {int_class}">
+            <div class="kpi-title">🏢 勤続意向</div>
+            <div class="kpi-value">{intention:.2f}<span class="kpi-unit">/5</span></div>
+            <div class="kpi-change">{int_status} • 長期コミットメント</div>
         </div>
         """, unsafe_allow_html=True)
     
-    # セカンダリメトリクス
-    st.markdown("### 📊 主要指標")
+    st.subheader("📊 基本指標")
     
+    # サブKPI（カスタムボックス使用）
     col1, col2, col3, col4 = st.columns(4)
     
-    metrics = [
-        ("平均年収", f"¥{kpis['avg_salary']:.0f}万", f"中央値: ¥{kpis['median_salary']:.0f}万"),
-        ("残業時間", f"{kpis['avg_overtime']:.1f}時間", "月平均"),
-        ("有給取得率", f"{kpis['avg_leave_usage']:.1f}%", "年間休暇利用率"),
-        ("平均勤続年数", f"{kpis['avg_work_years']:.1f}年", "勤続年数")
-    ]
+    with col1:
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-title">💰 平均年収</div>
+            <div class="kpi-value">¥{kpis['avg_salary']:.0f}<span class="kpi-unit">万</span></div>
+            <div class="kpi-change">中央値: ¥{kpis['median_salary']:.0f}万 • 給与水準</div>
+        </div>
+        """, unsafe_allow_html=True)
     
-    for i, (title, value, desc) in enumerate(metrics):
-        with [col1, col2, col3, col4][i]:
-            st.markdown(f"""
-            <div class="kpi-card">
-                <div class="kpi-title">{title}</div>
-                <div class="kpi-value">{value}</div>
-                <div class="kpi-description">{desc}</div>
-            </div>
-            """, unsafe_allow_html=True)
+    with col2:
+        overtime_class = "kpi-card-red" if kpis['avg_overtime'] >= 40 else "kpi-card-green" if kpis['avg_overtime'] <= 20 else "kpi-card-orange"
+        overtime_status = "多い" if kpis['avg_overtime'] >= 40 else "適正" if kpis['avg_overtime'] <= 20 else "普通"
+        st.markdown(f"""
+        <div class="kpi-card {overtime_class}">
+            <div class="kpi-title">⏰ 残業時間</div>
+            <div class="kpi-value">{kpis['avg_overtime']:.1f}<span class="kpi-unit">時間</span></div>
+            <div class="kpi-change">{overtime_status} • 月平均</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        leave_class = "kpi-card-green" if kpis['avg_leave_usage'] >= 80 else "kpi-card-red" if kpis['avg_leave_usage'] <= 50 else "kpi-card-orange"
+        leave_status = "良好" if kpis['avg_leave_usage'] >= 80 else "低い" if kpis['avg_leave_usage'] <= 50 else "普通"
+        st.markdown(f"""
+        <div class="kpi-card {leave_class}">
+            <div class="kpi-title">🏖️ 有給取得率</div>
+            <div class="kpi-value">{kpis['avg_leave_usage']:.1f}<span class="kpi-unit">%</span></div>
+            <div class="kpi-change">{leave_status} • 年間休暇利用率</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-title">👤 平均勤続年数</div>
+            <div class="kpi-value">{kpis['avg_work_years']:.1f}<span class="kpi-unit">年</span></div>
+            <div class="kpi-change">組織定着度 • 勤続年数</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 def show_professional_category_analysis(data, kpis):
-    """プロフェッショナルなカテゴリ分析"""
-    st.markdown('<div class="section-header"><h2>📈 カテゴリ別分析</h2></div>', unsafe_allow_html=True)
+    """満足度分析を表示"""
+    st.header("📈 カテゴリ別満足度分析")
     
-    tab1, tab2, tab3 = st.tabs(["🔸 レーダー分析", "📈 カテゴリランキング", "🔄 ギャップ分析"])
+    if not kpis or 'category_stats' not in kpis:
+        st.error("満足度データが利用できません")
+        return
+    
+    tab1, tab2, tab3 = st.tabs(["📊 レーダーチャート", "📋 満足度ランキング", "🎯 期待度ギャップ分析"])
     
     with tab1:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        col1, col2 = st.columns(2)
         
-        # レーダーチャート
-        categories = list(kpis['category_stats'].keys())
-        satisfaction_values = [kpis['category_stats'][cat]['satisfaction'] for cat in categories]
-        expectation_values = [kpis['category_stats'][cat]['expectation'] for cat in categories]
-        
-        fig = go.Figure()
-        
-        fig.add_trace(go.Scatterpolar(
-            r=satisfaction_values,
-            theta=categories,
-            fill='toself',
-            name='満足度',
-            line=dict(color='#3b82f6', width=3),
-            fillcolor='rgba(59, 130, 246, 0.1)'
-        ))
-        
-        fig.add_trace(go.Scatterpolar(
-            r=expectation_values,
-            theta=categories,
-            fill='toself',
-            name='期待度',
-            line=dict(color='#ef4444', width=3),
-            fillcolor='rgba(239, 68, 68, 0.1)'
-        ))
-        
-        fig.update_layout(
-            polar=dict(
-                radialaxis=dict(
-                    visible=True,
-                    range=[0, 5],
-                    tickfont=dict(size=10),
-                    gridcolor='#e5e7eb'
+        with col1:
+            # 満足度レーダーチャート
+            categories = list(kpis['category_stats'].keys())
+            satisfaction_values = [kpis['category_stats'][cat]['satisfaction'] for cat in categories]
+            
+            fig = go.Figure()
+            fig.add_trace(go.Scatterpolar(
+                r=satisfaction_values,
+                theta=categories,
+                fill='toself',
+                name='満足度',
+                marker_color='rgba(46, 204, 113, 0.6)',
+                line=dict(color='rgba(46, 204, 113, 1)', width=3)
+            ))
+            
+            fig.update_layout(
+                polar=dict(
+                    radialaxis=dict(visible=True, range=[0, 5], tickfont=dict(size=10)),
+                    angularaxis=dict(tickfont=dict(size=9))
                 ),
-                angularaxis=dict(
-                    tickfont=dict(size=11, color='#374151')
-                ),
-                bgcolor='rgba(255, 255, 255, 0)'
-            ),
-            title=dict(
-                text="カテゴリ別満足度 vs 期待度",
-                font=dict(size=16, color='#1e293b')
-            ),
-            height=500,
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=-0.1,
-                xanchor="center",
-                x=0.5
-            ),
-            paper_bgcolor='rgba(255, 255, 255, 0)',
-            plot_bgcolor='rgba(255, 255, 255, 0)'
-        )
+                showlegend=False,
+                title="満足度レーダーチャート",
+                height=400
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
         
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        with col2:
+            # 期待度レーダーチャート
+            if 'category_stats' in kpis:
+                expectation_values = [kpis['category_stats'][cat]['expectation'] for cat in categories]
+                
+                fig = go.Figure()
+                fig.add_trace(go.Scatterpolar(
+                    r=satisfaction_values,
+                    theta=categories,
+                    fill='toself',
+                    name='満足度',
+                    marker_color='rgba(46, 204, 113, 0.6)',
+                    line=dict(color='rgba(46, 204, 113, 1)', width=2)
+                ))
+                fig.add_trace(go.Scatterpolar(
+                    r=expectation_values,
+                    theta=categories,
+                    fill='toself',
+                    name='期待度',
+                    marker_color='rgba(52, 152, 219, 0.4)',
+                    line=dict(color='rgba(52, 152, 219, 1)', width=2)
+                ))
+                
+                fig.update_layout(
+                    polar=dict(
+                        radialaxis=dict(visible=True, range=[0, 5], tickfont=dict(size=10)),
+                        angularaxis=dict(tickfont=dict(size=9))
+                    ),
+                    title="満足度 vs 期待度",
+                    height=400
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
     
     with tab2:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        # 満足度ランキング
+        categories = list(kpis['category_stats'].keys())
+        satisfaction_values = [kpis['category_stats'][cat]['satisfaction'] for cat in categories]
         
-        # カテゴリランキング
-        category_df = pd.DataFrame({
+        satisfaction_df = pd.DataFrame({
             'カテゴリ': categories,
-            '満足度': satisfaction_values,
-            '期待度': expectation_values,
-            'ギャップ': [kpis['category_stats'][cat]['gap'] for cat in categories]
+            '満足度': satisfaction_values
         }).sort_values('満足度', ascending=True)
         
         fig = px.bar(
-            category_df,
+            satisfaction_df,
             x='満足度',
             y='カテゴリ',
             orientation='h',
-            title='カテゴリ別満足度ランキング',
+            title="カテゴリ別満足度ランキング",
             color='満足度',
             color_continuous_scale='RdYlGn',
-            range_color=[1, 5]
+            range_color=[1, 5],
+            height=600
         )
         
         fig.update_layout(
-            height=400,
-            title_font_size=16,
-            paper_bgcolor='rgba(255, 255, 255, 0)',
-            plot_bgcolor='rgba(255, 255, 255, 0)'
+            xaxis_title="満足度 (1-5点)",
+            yaxis_title="",
+            coloraxis_colorbar=dict(title="満足度スコア")
         )
         
         st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
         
-        # カテゴリ詳細テーブル
-        st.markdown("#### カテゴリ詳細")
-        category_display = category_df.round(2)
-        st.dataframe(category_display, use_container_width=True, hide_index=True)
+        # 詳細テーブル
+        st.subheader("📋 カテゴリ詳細データ")
+        display_df = satisfaction_df.sort_values('満足度', ascending=False).round(2)
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
     
     with tab3:
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        
         # ギャップ分析
-        gap_df = pd.DataFrame({
-            'カテゴリ': categories,
-            '満足度': satisfaction_values,
-            '期待度': expectation_values,
-            'ギャップ': [kpis['category_stats'][cat]['gap'] for cat in categories]
-        })
-        
-        fig = px.scatter(
-            gap_df,
-            x='満足度',
-            y='期待度',
-            size=np.abs(gap_df['ギャップ']) + 0.1,
-            color='ギャップ',
-            hover_name='カテゴリ',
-            title='期待度 vs 満足度 ギャップ分析',
-            color_continuous_scale='RdYlGn',
-            range_x=[1, 5],
-            range_y=[1, 5]
-        )
-        
-        # 対角線追加
-        fig.add_shape(
-            type="line", x0=1, y0=1, x1=5, y1=5,
-            line=dict(color="gray", width=2, dash="dash"),
-        )
-        
-        fig.update_layout(
-            height=500,
-            title_font_size=16,
-            paper_bgcolor='rgba(255, 255, 255, 0)',
-            plot_bgcolor='rgba(255, 255, 255, 0)'
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        if 'category_stats' in kpis:
+            expectation_values = [kpis['category_stats'][cat]['expectation'] for cat in categories]
+            gap_values = [kpis['category_stats'][cat]['gap'] for cat in categories]
+            
+            gap_df = pd.DataFrame({
+                'カテゴリ': categories,
+                '満足度': satisfaction_values,
+                '期待度': expectation_values,
+                'ギャップ': gap_values
+            })
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # 散布図
+                fig = px.scatter(
+                    gap_df,
+                    x='満足度',
+                    y='期待度',
+                    size=np.abs(gap_df['ギャップ']) + 0.1,
+                    color='ギャップ',
+                    hover_name='カテゴリ',
+                    title='期待度 vs 満足度 ギャップ分析',
+                    color_continuous_scale='RdYlGn',
+                    range_x=[1, 5],
+                    range_y=[1, 5]
+                )
+                
+                # 対角線追加
+                fig.add_shape(
+                    type="line", x0=1, y0=1, x1=5, y1=5,
+                    line=dict(color="gray", width=2, dash="dash"),
+                )
+                
+                fig.update_layout(height=400)
+                st.plotly_chart(fig, use_container_width=True)
+            
+            with col2:
+                # ギャップバーチャート
+                gap_sorted = gap_df.sort_values('ギャップ', ascending=True)
+                
+                fig = px.bar(
+                    gap_sorted,
+                    x='ギャップ',
+                    y='カテゴリ',
+                    orientation='h',
+                    title='期待度-満足度ギャップ',
+                    color='ギャップ',
+                    color_continuous_scale='RdYlGn_r'
+                )
+                
+                fig.update_layout(height=400)
+                st.plotly_chart(fig, use_container_width=True)
+            
+            # ギャップ詳細
+            st.subheader("🎯 ギャップ分析詳細")
+            gap_display = gap_df.sort_values('ギャップ', ascending=True).round(2)
+            st.dataframe(gap_display, use_container_width=True, hide_index=True)
 
 def show_professional_detailed_analysis(data, kpis):
     """詳細分析表示"""
