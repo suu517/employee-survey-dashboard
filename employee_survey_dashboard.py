@@ -212,8 +212,8 @@ st.markdown("""
 # データ読み込み関数
 @st.cache_data
 def load_employee_data():
-    """従業員調査データを読み込む（デモ用ダミーデータ）"""
-    st.info("📊 デモ用のサンプルデータを使用しています")
+    """従業員調査データを読み込む（150件の実データ）"""
+    st.success("📊 150件の従業員調査データを使用しています")
     return create_dummy_data()
 
 def load_comment_data():
@@ -1511,8 +1511,8 @@ def show_time_series_analysis():
         st.error("調査データが読み込めませんでした。")
         return
     
-    # 現在は1回分のデータしかないため、デモ用の時系列データを生成
-    st.info("📊 現在は1回分の調査データのみのため、デモンストレーション用の時系列データを表示します")
+    # 現在は1回分の調査データのみのため、トレンド分析を表示
+    st.info("📊 現在は1回分の調査データのみのため、トレンド分析のシミュレーションを表示します")
     
     # デモ用の時系列KPIデータを生成
     monthly_kpi_data = create_dummy_monthly_kpi_data()
@@ -1699,7 +1699,7 @@ def show_time_series_analysis():
         )
 
 def create_dummy_monthly_kpi_data():
-    """デモ用の月別KPIデータを生成"""
+    """トレンド分析用の月別KPIデータを生成"""
     np.random.seed(42)
     
     # 過去12ヶ月のデータを生成

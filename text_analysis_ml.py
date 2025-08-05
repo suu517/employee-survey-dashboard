@@ -500,11 +500,13 @@ def load_real_data_for_analysis():
             
             return df, True
         else:
-            st.warning("📁 実データファイルが見つかりません。デモデータを使用します。")
+            st.error("❌ 従業員調査データファイルが見つかりません")
+            st.info("📁 data.xlsx ファイルをプロジェクトルートに配置してください")
             return create_sample_data_for_ml(200), False
             
     except Exception as e:
-        st.warning(f"実データ読み込みエラー: {e}")
+        st.error(f"従業員調査データ読み込みエラー: {e}")
+        st.info("データファイルの形式や配置を確認してください")
         return create_sample_data_for_ml(200), False
 
 def show_text_analysis_ml_page():
@@ -517,14 +519,14 @@ def show_text_analysis_ml_page():
     </div>
     """, unsafe_allow_html=True)
     
-    # 常に最新の実際の調査データを使用
-    with st.spinner("最新の調査データを読み込み中..."):
+    # 従業員調査データ150件を読み込み
+    with st.spinner("従業員調査データを読み込み中..."):
         df, is_real = load_real_data_for_analysis()
         if is_real:
-            st.success(f"✅ 最新の従業員調査データを読み込みました: {len(df)}件")
-            st.info("📊 本分析では実際の従業員調査結果（150件）を使用しています")
+            st.success(f"✅ 従業員調査データを正常に読み込みました: {len(df)}件")
+            st.info("📊 この分析では150件の実際の従業員調査回答を使用しています")
         else:
-            st.error("❌ 実データの読み込みに失敗しました")
+            st.error("❌ 従業員調査データファイルが見つかりません")
             st.warning("⚠️ フォールバック: デモ用サンプルデータを使用します")
             df = create_sample_data_for_ml(200)
     

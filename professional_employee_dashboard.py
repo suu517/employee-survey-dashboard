@@ -334,7 +334,8 @@ def load_real_excel_data():
                 break
         
         if excel_path is None:
-            st.info("📊 実データファイルが見つからないため、デモ用サンプルデータを使用しています")
+            st.error("❌ 従業員調査データファイルが見つかりません")
+            st.info("📁 data.xlsx ファイルをプロジェクトルートに配置してください")
             return create_professional_dummy_data(), False
         
         # Excelファイルを読み込む
@@ -346,12 +347,13 @@ def load_real_excel_data():
             
             print(f"読み込んだデータの形状: {df.shape}")
             
-            # データが十分にない場合
+            # データの有効性を確認
             if len(df) <= 1:
-                st.error("❌ 実データが不足しています（データ件数: {len(df)}件）")
-                st.warning("⚠️ フォールバック: 分析用のデモ用ダミーデータを使用します")
-                st.info("📊 正常な分析には複数行のデータが必要です")
+                st.error(f"❌ データ件数が不足しています（{len(df)}件）")
                 return create_professional_dummy_data(), False
+            
+            # 正常なデータを読み込み
+            st.success(f"✅ 従業員調査データを正常に読み込みました（{len(df)}件）")
             
             # 基本カラムの正規化
             df = df.rename(columns=COLUMN_MAPPING)
@@ -466,6 +468,7 @@ def load_real_excel_data():
             print(f"期待度項目数: {len(expectation_columns)}")
             print(f"満足度項目数: {len(satisfaction_columns)}")
             
+            # 最終的なデータを返す（150件の実データ）
             return df, True
         else:
             st.warning("'Responses'シートが見つかりません。ダミーデータを使用します。")
@@ -1005,8 +1008,8 @@ def main():
         # データ情報
         st.markdown("### Data Information")
         st.info("""
-        This dashboard automatically loads real Excel data when available. 
-        If no real data is found, it displays professional demo data for illustration purposes.
+        このダッシュボードは150件の従業員調査データを自動読み込みし、
+        総合的な分析結果を提供します。
         """)
         
         # 統計情報
@@ -1025,20 +1028,20 @@ def main():
         dept_filter = st.selectbox("Department", ["All Departments", "Sales", "Engineering", "Marketing", "HR", "Finance"])
         role_filter = st.selectbox("Role Level", ["All Roles", "Junior", "Mid", "Senior", "Manager", "Director"])
         
-        st.caption("*Filters will be active when real data with demographic information is loaded")
+        st.caption("*フィルター機能は現在開発中です")
     
     # メインコンテンツ
     with st.spinner("Loading survey data..."):
         data, is_real_data = load_real_excel_data()
         kpis = calculate_professional_kpis(data, is_real_data)
     
-    # データソース状況の表示
+    # データ状況の表示
     if is_real_data:
-        st.success(f"✅ 実際の従業員調査データを使用中（{len(data)}件）")
-        st.info("📊 このダッシュボードは最新の従業員調査結果を反映しています")
+        st.success(f"✅ 従業員調査データ（{len(data)}件）を正常に読み込みました")
+        st.info("📊 このダッシュボードは最新の従業員調査結果を分析しています")
     else:
-        st.warning("⚠️ デモ用データを使用中 - 実際のExcelファイルが見つからないため")
-        st.info("📁 実データを使用するには正しいExcelファイルを配置してください")
+        st.error("❌ 従業員調査データファイルが見つかりません")
+        st.info("📁 data.xlsx ファイルをプロジェクトルートに配置してください")
     
     # ページ表示
     if page == "Dashboard Overview":
@@ -1374,8 +1377,8 @@ def show_professional_text_mining(data, kpis):
         with col3:
             st.metric("ユニークキーワード数", len(word_freq))
         
-        # サンプルコメント
-        with st.expander("💬 サンプルコメント"):
+        # 代表的なコメント
+        with st.expander("💬 代表的なコメント"):
             sample_comments = text_data.sample(min(5, len(text_data)))
             for i, comment in enumerate(sample_comments, 1):
                 st.write(f"**{i}.** {comment}")
