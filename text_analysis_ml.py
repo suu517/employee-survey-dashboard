@@ -20,6 +20,27 @@ from sklearn.preprocessing import StandardScaler
 import warnings
 warnings.filterwarnings('ignore')
 
+# 日本語変換関数をインポート
+try:
+    from professional_employee_dashboard import convert_english_to_japanese_feature_name
+except ImportError:
+    # フォールバック関数
+    def convert_english_to_japanese_feature_name(feature_name):
+        """英語の特徴量名を日本語に変換するフォールバック関数"""
+        if feature_name.startswith('word_'):
+            word = feature_name.replace('word_', '')
+            return f'キーワード: {word}'
+        elif 'recommend_score' in feature_name:
+            return '推奨度スコア'
+        elif 'overall_satisfaction' in feature_name:
+            return '総合満足度'
+        elif 'long_term_intention' in feature_name:
+            return '勤続意向'
+        elif 'sense_of_contribution' in feature_name:
+            return '活躍貢献度'
+        else:
+            return feature_name
+
 # 日本語の自然言語処理用のライブラリ
 try:
     import janome
