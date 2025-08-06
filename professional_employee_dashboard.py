@@ -79,14 +79,19 @@ st.markdown("""
     }
     
     .kpi-card {
-        background: white;
-        border-radius: 12px;
-        padding: 1.5rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        border-left: 4px solid #3b82f6;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: 16px;
+        padding: 24px 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        margin-bottom: 16px;
+        min-height: 140px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
         position: relative;
         overflow: hidden;
+        transition: all 0.3s ease;
     }
     
     .kpi-card:hover {
@@ -98,29 +103,45 @@ st.markdown("""
         content: '';
         position: absolute;
         top: 0;
+        left: 0;
         right: 0;
-        width: 60px;
-        height: 60px;
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05));
-        border-radius: 50%;
-        transform: translate(20px, -20px);
+        height: 4px;
+        background: linear-gradient(90deg, #667eea, #764ba2);
     }
     
     .kpi-title {
-        font-size: 0.875rem;
-        font-weight: 500;
+        font-size: 13px;
         color: #64748b;
-        margin-bottom: 0.5rem;
+        margin-bottom: 12px;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.5px;
+        line-height: 1.2;
     }
     
     .kpi-value {
-        font-size: 2rem;
-        font-weight: 700;
+        font-size: 32px;
+        font-weight: 800;
         color: #1e293b;
-        margin-bottom: 0.5rem;
-        line-height: 1;
+        margin-bottom: 8px;
+        line-height: 1.1;
+        display: flex;
+        align-items: baseline;
+    }
+    
+    .kpi-unit {
+        font-size: 18px;
+        font-weight: 500;
+        color: #64748b;
+        margin-left: 4px;
+    }
+    
+    .kpi-change {
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        color: #64748b;
+        font-weight: 500;
     }
     
     .kpi-description {
@@ -251,72 +272,7 @@ st.markdown("""
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
     
-    /* KPIカードスタイル */
-    .kpi-card {
-        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-        border-radius: 16px;
-        padding: 24px 20px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        margin-bottom: 16px;
-        min-height: 140px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        position: relative;
-        overflow: hidden;
-        transition: all 0.3s ease;
-    }
-    
-    .kpi-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
-    }
-    
-    .kpi-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, #667eea, #764ba2);
-    }
-    
-    .kpi-title {
-        font-size: 13px;
-        color: #64748b;
-        margin-bottom: 12px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        line-height: 1.2;
-    }
-    
-    .kpi-value {
-        font-size: 32px;
-        font-weight: 800;
-        color: #1e293b;
-        margin-bottom: 8px;
-        line-height: 1.1;
-        display: flex;
-        align-items: baseline;
-    }
-    
-    .kpi-unit {
-        font-size: 18px;
-        font-weight: 500;
-        color: #64748b;
-        margin-left: 4px;
-    }
-    
-    .kpi-change {
-        font-size: 13px;
-        display: flex;
-        align-items: center;
-        color: #64748b;
-        font-weight: 500;
-    }
+    /* 重複したKPIカードスタイルを削除（上で定義済み） */
     
     /* カラー付きKPIカード */
     .kpi-card-green::before {
