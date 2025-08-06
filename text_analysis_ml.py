@@ -1051,11 +1051,11 @@ def show_text_analysis_ml_page():
                         text_features = st.session_state.vectorizer.transform([processed_text])
                         
                         # 予測実行
-                        if 'ensemble_models' in st.session_state and st.session_state.ensemble_models:
+                        if 'ml_models' in st.session_state and st.session_state['ml_models']:
                             predictions = {}
                             probabilities = {}
                             
-                            for name, model in st.session_state.ensemble_models.items():
+                            for name, model in st.session_state['ml_models'].items():
                                 try:
                                     pred = model.predict(text_features)[0]
                                     prob = model.predict_proba(text_features)[0]

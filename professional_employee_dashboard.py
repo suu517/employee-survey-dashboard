@@ -758,6 +758,136 @@ def get_kpi_color_class(value, thresholds):
     else:
         return 'kpi-warning'
 
+def convert_english_to_japanese_feature_name(feature_name):
+    """英語の特徴量名を日本語に変換"""
+    feature_translation = {
+        # 基本指標
+        'recommend_score': '推奨度スコア',
+        'overall_satisfaction': '総合満足度', 
+        'long_term_intention': '勤続意向',
+        'sense_of_contribution': '活躍貢献度',
+        'annual_salary': '概算年収',
+        'avg_monthly_overtime': '月間平均残業時間',
+        'paid_leave_usage_rate': '年間有給取得率',
+        'start_year': '入社年度',
+        'employment_type': '雇用形態',
+        'department': '所属事業部',
+        'position': '役職',
+        'job_type': '職種',
+        'gender': '性別',
+        'age_group': '年代',
+        'tenure_years': '勤続年数',
+        'work_years': '勤続年数',
+        
+        # 満足度項目（英語キー）
+        'work_hours_satisfaction': '勤務時間満足度',
+        'holidays_satisfaction': '休日休暇満足度',
+        'paid_leave_satisfaction': '有給休暇満足度',
+        'flex_work_satisfaction': '柔軟勤務制度満足度',
+        'commute_satisfaction': '通勤距離満足度',
+        'job_transfer_satisfaction': '転勤制度満足度',
+        'internal_mobility_satisfaction': '社内異動満足度',
+        'overtime_pay_satisfaction': '残業代満足度',
+        'fair_evaluation_satisfaction': '公正評価満足度',
+        'promotion_satisfaction': '昇進昇格満足度',
+        'benefits_satisfaction': '福利厚生満足度',
+        'workload_satisfaction': '業務量満足度',
+        'physical_load_satisfaction': '身体負荷満足度',
+        'mental_load_satisfaction': '精神負荷満足度',
+        'achievable_goals_satisfaction': '達成可能目標満足度',
+        'specialized_skills_satisfaction': '専門スキル満足度',
+        'general_skills_satisfaction': '汎用スキル満足度',
+        'training_satisfaction': '教育体制満足度',
+        'career_path_satisfaction': 'キャリアパス満足度',
+        'career_match_satisfaction': 'キャリアマッチ満足度',
+        'role_models_satisfaction': 'ロールモデル満足度',
+        'pride_in_work_satisfaction': '仕事誇り満足度',
+        'social_contribution_satisfaction': '社会貢献満足度',
+        'job_fulfillment_satisfaction': 'やりがい満足度',
+        'autonomy_satisfaction': '裁量権満足度',
+        'sense_of_growth_satisfaction': '成長実感満足度',
+        'sense_of_achievement_satisfaction': '達成感満足度',
+        'impactful_work_satisfaction': '大規模仕事満足度',
+        'use_of_strengths_satisfaction': '強み活用満足度',
+        'relationships_satisfaction': '人間関係満足度',
+        'harassment_free_satisfaction': 'ハラスメント防止満足度',
+        'culture_fit_satisfaction': '企業文化適合満足度',
+        'open_communication_satisfaction': '風通し良さ満足度',
+        'learning_culture_satisfaction': '学習文化満足度',
+        'work_environment_satisfaction': '職場環境満足度',
+        'women_support_satisfaction': '女性支援満足度',
+        'company_stability_satisfaction': '事業安定性満足度',
+        'management_strategy_satisfaction': '経営戦略満足度',
+        'competitive_edge_satisfaction': '競合優位性満足度',
+        'brand_power_satisfaction': 'ブランド力満足度',
+        'mission_vision_fit_satisfaction': 'ミッションバリュー満足度',
+        'compliance_satisfaction': 'コンプライアンス満足度',
+        
+        # 期待度項目（英語キー）
+        'work_hours_expectation': '勤務時間期待度',
+        'holidays_expectation': '休日休暇期待度',
+        'paid_leave_expectation': '有給休暇期待度',
+        'flex_work_expectation': '柔軟勤務制度期待度',
+        'commute_expectation': '通勤距離期待度',
+        'job_transfer_expectation': '転勤制度期待度',
+        'internal_mobility_expectation': '社内異動期待度',
+        'overtime_pay_expectation': '残業代期待度',
+        'fair_evaluation_expectation': '公正評価期待度',
+        'promotion_expectation': '昇進昇格期待度',
+        'benefits_expectation': '福利厚生期待度',
+        'workload_expectation': '業務量期待度',
+        'physical_load_expectation': '身体負荷期待度',
+        'mental_load_expectation': '精神負荷期待度',
+        'achievable_goals_expectation': '達成可能目標期待度',
+        'specialized_skills_expectation': '専門スキル期待度',
+        'general_skills_expectation': '汎用スキル期待度',
+        'training_expectation': '教育体制期待度',
+        'career_path_expectation': 'キャリアパス期待度',
+        'career_match_expectation': 'キャリアマッチ期待度',
+        'role_models_expectation': 'ロールモデル期待度',
+        'pride_in_work_expectation': '仕事誇り期待度',
+        'social_contribution_expectation': '社会貢献期待度',
+        'job_fulfillment_expectation': 'やりがい期待度',
+        'autonomy_expectation': '裁量権期待度',
+        'sense_of_growth_expectation': '成長実感期待度',
+        'sense_of_achievement_expectation': '達成感期待度',
+        'impactful_work_expectation': '大規模仕事期待度',
+        'use_of_strengths_expectation': '強み活用期待度',
+        'relationships_expectation': '人間関係期待度',
+        'harassment_free_expectation': 'ハラスメント防止期待度',
+        'culture_fit_expectation': '企業文化適合期待度',
+        'open_communication_expectation': '風通し良さ期待度',
+        'learning_culture_expectation': '学習文化期待度',
+        'work_environment_expectation': '職場環境期待度',
+        'women_support_expectation': '女性支援期待度',
+        'company_stability_expectation': '事業安定性期待度',
+        'management_strategy_expectation': '経営戦略期待度',
+        'competitive_edge_expectation': '競合優位性期待度',
+        'brand_power_expectation': 'ブランド力期待度',
+        'mission_vision_fit_expectation': 'ミッションバリュー期待度',
+        'compliance_expectation': 'コンプライアンス期待度'
+    }
+    
+    # 既知の変換があれば使用
+    if feature_name in feature_translation:
+        return feature_translation[feature_name]
+    
+    # word_プレフィックスがある場合の処理
+    if feature_name.startswith('word_'):
+        word = feature_name.replace('word_', '')
+        return f'キーワード: {word}'
+    
+    # その他のパターンマッチング
+    if '_satisfaction' in feature_name:
+        base_name = feature_name.replace('_satisfaction', '')
+        return f'{base_name}満足度'
+    elif '_expectation' in feature_name:
+        base_name = feature_name.replace('_expectation', '')
+        return f'{base_name}期待度'
+    
+    # 変換できない場合はそのまま返す
+    return feature_name
+
 def show_professional_kpi_overview(data, kpis):
     """KPI概要を表示（カスタムボックス使用）"""
     st.header("📊 従業員調査ダッシュボード")
@@ -1470,7 +1600,7 @@ def main():
             st.info("必要なライブラリ（janome, scikit-learn）がインストールされているか確認してください。")
 
 def show_professional_regression_analysis(data, kpis):
-    """重回帰分析を表示"""
+    """重回帰分析を表示（説明変数選択機能付き）"""
     st.markdown('<div class="section-header"><h2>🔬 Multiple Regression Analysis</h2></div>', unsafe_allow_html=True)
     st.markdown("主要指標に対する満足度項目の影響力を分析します")
     
@@ -1482,12 +1612,86 @@ def show_professional_regression_analysis(data, kpis):
         '活躍貢献度': 'sense_of_contribution'
     }
     
-    selected_target = st.selectbox(
-        "🎯 分析対象（目的変数）を選択してください",
-        list(target_options.keys())
-    )
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        selected_target = st.selectbox(
+            "🎯 分析対象（目的変数）を選択してください",
+            list(target_options.keys())
+        )
     
     target_col = target_options[selected_target]
+    
+    # 説明変数の選択機能を追加
+    with col2:
+        st.markdown("### 📊 説明変数選択")
+        
+    # 利用可能な説明変数を特定
+    available_explanatory_vars = []
+    available_var_names = []
+    
+    # 実データの満足度項目を検索
+    satisfaction_patterns = [
+        '自分に合った勤務時間で働ける',
+        '休日休暇がちゃんと取れる', 
+        '有給休暇がちゃんと取れる',
+        '柔軟な勤務体系',
+        '人間関係が良好な',
+        '仕事内容や量に対する精神的な負荷',
+        '充実した福利厚生',
+        '自身の行った仕事が正当に評価される',
+        '成果に応じて早期の昇給・昇格',
+        'やりがい',
+        'キャリア',
+        '成長',
+        '専門的なスキル',
+        'コミュニケーション'
+    ]
+    
+    for col in data.columns:
+        col_str = str(col)
+        if any(pattern in col_str for pattern in satisfaction_patterns) and '満足している' in col_str:
+            available_explanatory_vars.append(col)
+            # 簡潔な名前を抽出
+            short_name = col_str.split('（')[0].replace('満足している', '').replace('について', '')
+            available_var_names.append(short_name[:30])
+    
+    # ダミーデータの場合は従来の方法を使用
+    if len(available_explanatory_vars) == 0:
+        for category, items in SURVEY_CATEGORIES.items():
+            for item_key, item_name in items.items():
+                sat_col = f'{item_key}_satisfaction'
+                if sat_col in data.columns:
+                    available_explanatory_vars.append(sat_col)
+                    available_var_names.append(item_name)
+    
+    # 説明変数選択UI
+    if available_explanatory_vars:
+        selected_indices = st.multiselect(
+            "使用する説明変数を選択してください（複数選択可能）",
+            range(len(available_var_names)),
+            format_func=lambda x: available_var_names[x],
+            default=list(range(min(10, len(available_var_names)))),  # デフォルトで最初の10個を選択
+            help="多すぎる変数を選択すると過学習の原因となることがあります。関連性の高い変数を10-15個程度選択することをお勧めします。"
+        )
+        
+        if not selected_indices:
+            st.warning("⚠️ 少なくとも1つの説明変数を選択してください。")
+            return
+        
+        # 選択された変数に絞り込み
+        explanatory_vars = [available_explanatory_vars[i] for i in selected_indices]
+        var_names = [available_var_names[i] for i in selected_indices]
+        
+        st.info(f"✅ 選択された説明変数: {len(explanatory_vars)}個")
+        
+        # 選択された変数を表示
+        with st.expander("📋 選択された説明変数の詳細"):
+            for i, name in enumerate(var_names, 1):
+                st.write(f"{i}. {name}")
+    else:
+        st.error("利用可能な説明変数が見つかりません。")
+        return
     
     if target_col not in data.columns:
         st.error(f"目的変数 '{target_col}' がデータに含まれていません")
@@ -1500,40 +1704,7 @@ def show_professional_regression_analysis(data, kpis):
         from sklearn.metrics import r2_score, mean_squared_error
         import scipy.stats as stats
         
-        # 説明変数（満足度項目）を準備
-        explanatory_vars = []
-        var_names = []
-        
-        # 実データの満足度項目を検索
-        satisfaction_patterns = [
-            '自分に合った勤務時間で働ける',
-            '休日休暇がちゃんと取れる', 
-            '有給休暇がちゃんと取れる',
-            '柔軟な勤務体系',
-            '人間関係が良好な',
-            '仕事内容や量に対する精神的な負荷',
-            '充実した福利厚生',
-            '自身の行った仕事が正当に評価される',
-            '成果に応じて早期の昇給・昇格'
-        ]
-        
-        for col in data.columns:
-            col_str = str(col)
-            # 満足度項目を検索（「満足している」を含むカラム）
-            if any(pattern in col_str for pattern in satisfaction_patterns) and '満足している' in col_str:
-                explanatory_vars.append(col)
-                # 簡潔な名前を抽出
-                short_name = col_str.split('（')[0].replace('満足している', '').replace('について', '')
-                var_names.append(short_name[:20])  # 20文字まで
-        
-        # ダミーデータの場合は従来の方法を使用
-        if len(explanatory_vars) == 0 and hasattr(data, 'columns') and any('_satisfaction' in str(col) for col in data.columns):
-            for category, items in SURVEY_CATEGORIES.items():
-                for item_key, item_name in items.items():
-                    sat_col = f'{item_key}_satisfaction'
-                    if sat_col in data.columns:
-                        explanatory_vars.append(sat_col)
-                        var_names.append(item_name)
+        # 選択された説明変数を使用
         
         if len(explanatory_vars) < 2:
             st.error("分析に必要な説明変数が不足しています")
@@ -1607,7 +1778,7 @@ def show_professional_regression_analysis(data, kpis):
             </div>
             """, unsafe_allow_html=True)
         
-        # 係数の重要度をプロット
+        # 係数の重要度をプロット（日本語ラベル対応）
         if len(var_names) == len(model.coef_):
             coefficients = pd.DataFrame({
                 'Variable': var_names,
@@ -1615,9 +1786,19 @@ def show_professional_regression_analysis(data, kpis):
                 'Abs_Coefficient': np.abs(model.coef_)
             }).sort_values('Abs_Coefficient', ascending=True)
         else:
-            # フォールバック: カラム名を使用
+            # フォールバック: 英語変数名を日本語に変換
+            japanese_var_names = []
+            for i, coef in enumerate(model.coef_):
+                if i < len(explanatory_vars):
+                    original_var = explanatory_vars[i]
+                    # 英語変数名を日本語に変換
+                    jp_name = convert_english_to_japanese_feature_name(original_var)
+                    japanese_var_names.append(jp_name)
+                else:
+                    japanese_var_names.append(f'変数_{i+1}')
+            
             coefficients = pd.DataFrame({
-                'Variable': [f'Var_{i}' for i in range(len(model.coef_))],
+                'Variable': japanese_var_names,
                 'Coefficient': model.coef_,
                 'Abs_Coefficient': np.abs(model.coef_)
             }).sort_values('Abs_Coefficient', ascending=True)
