@@ -1822,7 +1822,7 @@ def show_professional_regression_analysis(data, kpis):
         
         st.plotly_chart(fig, use_container_width=True)
         
-        # 詳細統計
+        # 詳細統計（日本語対応）
         with st.expander("📋 詳細統計"):
             if len(var_names) == len(model.coef_):
                 results_df = pd.DataFrame({
@@ -1831,8 +1831,18 @@ def show_professional_regression_analysis(data, kpis):
                     '絶対値': np.abs(model.coef_).round(4)
                 }).sort_values('絶対値', ascending=False)
             else:
+                # フォールバック: 英語変数名を日本語に変換
+                japanese_names = []
+                for i, coef in enumerate(model.coef_):
+                    if i < len(explanatory_vars):
+                        original_var = explanatory_vars[i]
+                        jp_name = convert_english_to_japanese_feature_name(original_var)
+                        japanese_names.append(jp_name)
+                    else:
+                        japanese_names.append(f'変数_{i+1}')
+                
                 results_df = pd.DataFrame({
-                    '項目': [f'Variable_{i}' for i in range(len(model.coef_))],
+                    '項目': japanese_names,
                     '回帰係数': model.coef_.round(4),
                     '絶対値': np.abs(model.coef_).round(4)
                 }).sort_values('絶対値', ascending=False)

@@ -421,11 +421,12 @@ def visualize_feature_importance(models, feature_names, top_n=15):
                 if feature_name.startswith('word_'):
                     word = feature_name.replace('word_', '')
                     if filter_meaningful_words(word) and importance > 0.001:  # 重要度閾値も設定
-                        meaningful_features.append(word)
+                        meaningful_features.append(f'キーワード: {word}')
                         meaningful_importances.append(importance)
                 else:
-                    # 数値特徴量はそのまま
-                    meaningful_features.append(feature_name)
+                    # 数値特徴量は日本語に変換
+                    jp_name = convert_english_to_japanese_feature_name(feature_name)
+                    meaningful_features.append(jp_name)
                     meaningful_importances.append(importance)
             
             # 重要性でソート
