@@ -1292,7 +1292,7 @@ def show_text_mining_analysis():
         return
     
     # タブを作成
-    tabs = st.tabs(["📊 キーワード分析", "🕸️ 共起ネットワーク", "☁️ ワードクラウド", "📋 コメント一覧"])
+    tabs = st.tabs(["📊 キーワード分析", "📈 頻出キーワード トップ20", "🕸️ 共起ネットワーク", "☁️ ワードクラウド", "📋 コメント一覧"])
     
     with tabs[0]:  # キーワード分析
         st.subheader("🔍 頻出キーワード分析")
@@ -1303,6 +1303,14 @@ def show_text_mining_analysis():
             key="keyword_analysis_type"
         )
         
+        # レイアウト選択オプション
+        layout_option = st.radio(
+            "グラフレイアウト:",
+            ["横棒グラフ", "縦棒グラフ"],
+            horizontal=True,
+            key="layout_option"
+        )
+        
         if comment_type in comments and comments[comment_type]:
             keywords = extract_keywords_janome(comments[comment_type], max_features=20)
             
@@ -1310,17 +1318,33 @@ def show_text_mining_analysis():
                 # データフレームに変換
                 keyword_df = pd.DataFrame(keywords, columns=['キーワード', '出現回数'])
                 
-                # 棒グラフで表示
-                fig = px.bar(
-                    keyword_df, 
-                    x='出現回数', 
-                    y='キーワード',
-                    orientation='h',
-                    title=f"{comment_type} - 頻出キーワードランキング",
-                    color='出現回数',
-                    color_continuous_scale='viridis'
-                )
-                fig.update_layout(height=600, yaxis={'categoryorder':'total ascending'})
+                # レイアウトに応じて棒グラフを表示
+                if layout_option == "横棒グラフ":
+                    fig = px.bar(
+                        keyword_df, 
+                        x='出現回数', 
+                        y='キーワード',
+                        orientation='h',
+                        title=f"{comment_type} - 頻出キーワードランキング",
+                        color='出現回数',
+                        color_continuous_scale='viridis'
+                    )
+                    fig.update_layout(height=600, yaxis={'categoryorder':'total ascending'})
+                else:  # 縦棒グラフ
+                    fig = px.bar(
+                        keyword_df, 
+                        x='キーワード', 
+                        y='出現回数',
+                        title=f"{comment_type} - 頻出キーワードランキング",
+                        color='出現回数',
+                        color_continuous_scale='viridis'
+                    )
+                    fig.update_layout(
+                        height=600, 
+                        xaxis={'categoryorder':'total descending'},
+                        xaxis_tickangle=-45
+                    )
+                
                 st.plotly_chart(fig, use_container_width=True)
                 
                 # テーブル表示
@@ -1331,7 +1355,65 @@ def show_text_mining_analysis():
         else:
             st.info(f"{comment_type}のデータがありません。")
     
-    with tabs[1]:  # 共起ネットワーク
+    with tabs[1]:  # 頻出キーワード トップ20専用タブ
+        st.subheader("📈 頻出キーワード トップ20")
+        
+        comment_type = st.selectbox(
+            "分析するコメント種別を選択:",
+            list(comments.keys()),
+            key="top20_keyword_type"
+        )
+        
+        if comment_type in comments and comments[comment_type]:
+            keywords = extract_keywords_janome(comments[comment_type], max_features=20)
+            
+            if keywords:
+                # データフレームに変換
+                keyword_df = pd.DataFrame(keywords, columns=['キーワード', '出現回数'])
+                
+                # 2列レイアウトで表示
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    # 縦並びの棒グラフ
+                    fig = px.bar(
+                        keyword_df, 
+                        x='キーワード', 
+                        y='出現回数',
+                        title=f"{comment_type} - 頻出キーワード トップ20",
+                        color='出現回数',
+                        color_continuous_scale='Blues',
+                        text='出現回数'
+                    )
+                    fig.update_layout(
+                        height=700, 
+                        xaxis={'categoryorder':'total descending'},
+                        xaxis_tickangle=-45,
+                        showlegend=False
+                    )
+                    fig.update_traces(texttemplate='%{text}', textposition='outside')
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                with col2:
+                    # ランキングテーブル
+                    st.subheader("🏆 ランキング")
+                    # ランキング番号を追加
+                    ranking_df = keyword_df.copy()
+                    ranking_df.insert(0, 'ランク', range(1, len(ranking_df) + 1))
+                    
+                    # より見やすいスタイリング
+                    st.dataframe(
+                        ranking_df,
+                        use_container_width=True,
+                        hide_index=True,
+                        height=600
+                    )
+            else:
+                st.info("抽出されたキーワードがありません。")
+        else:
+            st.info(f"{comment_type}のデータがありません。")
+    
+    with tabs[2]:  # 共起ネットワーク
         st.subheader("🕸️ 共起ネットワーク分析")
         
         comment_type = st.selectbox(
@@ -1436,7 +1518,7 @@ def show_text_mining_analysis():
         else:
             st.info(f"{comment_type}のデータがありません。")
     
-    with tabs[2]:  # ワードクラウド
+    with tabs[3]:  # ワードクラウド
         st.subheader("☁️ ワードクラウド")
         
         comment_type = st.selectbox(
@@ -1481,7 +1563,7 @@ def show_text_mining_analysis():
         else:
             st.info(f"{comment_type}のデータがありません。")
     
-    with tabs[3]:  # コメント一覧
+    with tabs[4]:  # コメント一覧
         st.subheader("📋 コメント一覧")
         
         comment_type = st.selectbox(
